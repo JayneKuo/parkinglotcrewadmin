@@ -2,16 +2,16 @@
   <div class="driver-container">
     <!-- 搜索区域 -->
     <el-card class="search-card">
-      <el-form :inline="true" :model="searchForm" class="search-form">
-        <el-form-item label="Keyword">
+      <div class="search-header">
+        <div class="search-form">
           <el-input 
             v-model="searchForm.keyword" 
-            placeholder="Name/Phone/License/Plate" 
+            placeholder="Search by name/phone/license/plate" 
             clearable
+            :prefix-icon="Search"
+            style="width: 300px"
           />
-        </el-form-item>
-        <el-form-item label="Status">
-          <el-select v-model="searchForm.status" placeholder="All Status" clearable>
+          <el-select v-model="searchForm.status" placeholder="Status" clearable>
             <el-option
               v-for="status in driverStatus"
               :key="status.value"
@@ -23,9 +23,7 @@
               </el-tag>
             </el-option>
           </el-select>
-        </el-form-item>
-        <el-form-item label="Membership">
-          <el-select v-model="searchForm.membershipType" placeholder="All Types" clearable>
+          <el-select v-model="searchForm.membershipType" placeholder="Membership" clearable>
             <el-option
               v-for="type in membershipTypes"
               :key="type.value"
@@ -33,79 +31,20 @@
               :value="type.value"
             />
           </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">Search</el-button>
-          <el-button @click="handleReset">Reset</el-button>
-        </el-form-item>
-      </el-form>
-
-      <div class="header-actions">
+          <div class="search-buttons">
+            <el-button type="primary" @click="handleSearch">Search</el-button>
+            <el-button @click="handleReset">Reset</el-button>
+          </div>
+        </div>
         <el-button type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon>Add Driver
         </el-button>
       </div>
     </el-card>
 
-    <!-- 司机列表 -->
+    <!-- 列表区域 -->
     <el-card class="list-card">
-      <el-table :data="driverList" border style="width: 100%">
-        <el-table-column type="expand">
-          <template #default="{ row }">
-            <div class="driver-detail">
-              <!-- 车辆信息 -->
-              <div class="detail-section">
-                <h4>Vehicles</h4>
-                <div class="vehicle-list">
-                  <el-tag 
-                    v-for="vehicle in row.vehicleInfo" 
-                    :key="vehicle.plateNumber"
-                    class="vehicle-tag"
-                  >
-                    {{ vehicle.plateNumber }} - {{ vehicle.make }} {{ vehicle.model }}
-                  </el-tag>
-                </div>
-              </div>
-              
-              <!-- 停车历史 -->
-              <div class="detail-section">
-                <h4>Parking History</h4>
-                <div class="history-info">
-                  <div class="info-item">
-                    <span class="label">Total Visits:</span>
-                    <span class="value">{{ row.parkingHistory.totalVisits }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="label">Last Visit:</span>
-                    <span class="value">{{ row.parkingHistory.lastVisit }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="label">Favorite Location:</span>
-                    <span class="value">{{ row.parkingHistory.favoriteLocation }}</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 支付信息 -->
-              <div class="detail-section">
-                <h4>Payment Information</h4>
-                <div class="payment-info">
-                  <div class="info-item">
-                    <span class="label">Balance:</span>
-                    <span class="value">${{ row.paymentInfo.balance }}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="label">Auto Recharge:</span>
-                    <el-tag :type="row.paymentInfo.autoRecharge ? 'success' : 'info'" size="small">
-                      {{ row.paymentInfo.autoRecharge ? 'Enabled' : 'Disabled' }}
-                    </el-tag>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </template>
-        </el-table-column>
-
+      <el-table :data="driverList" border stripe>
         <el-table-column label="Driver" min-width="200">
           <template #default="{ row }">
             <div class="driver-info">
@@ -127,7 +66,7 @@
         <el-table-column label="Membership" width="150">
           <template #default="{ row }">
             <div class="membership-info">
-              <el-tag :type="getMembershipType(row.membershipType)">
+              <el-tag :type="getMembershipType(row.membershipType)" size="small">
                 {{ row.membershipType }}
               </el-tag>
               <div v-if="row.membershipExpiry" class="expiry-date">
@@ -137,32 +76,47 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="status" label="Status" width="120">
+        <el-table-column prop="status" label="Status" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">
+            <el-tag :type="getStatusType(row.status)" size="small">
               {{ row.status }}
             </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column label="Actions" width="150" fixed="right">
+        <el-table-column label="Actions" width="70" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button-group>
-              <el-button type="primary" link @click="handleEdit(row)">
-                <el-icon><Edit /></el-icon>
+            <el-dropdown trigger="hover" @command="(command) => handleCommand(command, row)">
+              <el-button type="primary" link>
+                <el-icon><More /></el-icon>
               </el-button>
-              <el-button type="primary" link @click="handleHistory(row)">
-                <el-icon><List /></el-icon>
-              </el-button>
-              <el-button 
-                type="primary" 
-                link 
-                :disabled="row.status === DriverStatus.Blocked"
-                @click="handleBlock(row)"
-              >
-                <el-icon><CircleClose /></el-icon>
-              </el-button>
-            </el-button-group>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="edit">
+                    <el-icon><Edit /></el-icon>Edit
+                  </el-dropdown-item>
+                  <el-dropdown-item command="vehicles">
+                    <el-icon><Van /></el-icon>Vehicles
+                  </el-dropdown-item>
+                  <el-dropdown-item command="history">
+                    <el-icon><List /></el-icon>History
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="row.status !== DriverStatus.Blocked"
+                    command="block"
+                    divided
+                  >
+                    <el-icon><CircleClose /></el-icon>Block
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    command="delete"
+                    class="danger"
+                  >
+                    <el-icon><Delete /></el-icon>Delete
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
@@ -185,16 +139,300 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { h } from 'vue'
 import { 
-  Plus, Edit, List, CircleClose,
-  Phone, Message 
+  Plus, Edit, List, CircleClose, Delete,
+  Phone, Message, Van, More, Search 
 } from '@element-plus/icons-vue'
-import { ElMessageBox, ElMessage } from 'element-plus'
+import { ElMessageBox, ElMessage, ElButton } from 'element-plus'
+import type { Driver, DriverSearchForm } from '@/types/driver'
 import { DriverStatus, MembershipType } from '@/types/driver'
+import { mockDriversResponse, mockDrivers } from '@/mock/driver'
+import { useRouter } from 'vue-router'
 
-// ... 状态和方法的实现
+const router = useRouter()
+
+// 搜索表单
+const searchForm = ref<DriverSearchForm>({
+  keyword: '',
+  status: '',
+  membershipType: ''
+})
+
+// 分页参数
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+
+// 司机列表
+const driverList = ref<Driver[]>([])
+
+// 状态选项
+const driverStatus = [
+  { label: 'Active', value: DriverStatus.Active },
+  { label: 'Inactive', value: DriverStatus.Inactive },
+  { label: 'Blocked', value: DriverStatus.Blocked }
+]
+
+// 会员类型选项
+const membershipTypes = [
+  { label: 'None', value: MembershipType.None },
+  { label: 'Regular', value: MembershipType.Regular },
+  { label: 'Premium', value: MembershipType.Premium },
+  { label: 'VIP', value: MembershipType.VIP }
+]
+
+// 获取状态类型
+const getStatusType = (status: DriverStatus) => {
+  switch (status) {
+    case DriverStatus.Active:
+      return 'success'
+    case DriverStatus.Inactive:
+      return 'info'
+    case DriverStatus.Blocked:
+      return 'danger'
+    default:
+      return 'info'
+  }
+}
+
+// 获取会员类型样式
+const getMembershipType = (type: MembershipType) => {
+  switch (type) {
+    case MembershipType.VIP:
+      return 'danger'
+    case MembershipType.Premium:
+      return 'warning'
+    case MembershipType.Regular:
+      return 'success'
+    default:
+      return 'info'
+  }
+}
+
+// 修改加载司机列表方法
+const loadDrivers = async () => {
+  try {
+    // 使用模拟数据
+    const data = mockDriversResponse({
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      ...searchForm.value
+    })
+    
+    driverList.value = data.items
+    total.value = data.total
+  } catch (error) {
+    ElMessage.error('Failed to load drivers')
+  }
+}
+
+// 搜索
+const handleSearch = () => {
+  currentPage.value = 1
+  loadDrivers()
+}
+
+// 重置搜索
+const handleReset = () => {
+  searchForm.value = {
+    keyword: '',
+    status: '',
+    membershipType: ''
+  }
+  handleSearch()
+}
+
+// 添加司机
+const handleAdd = () => {
+  router.push('/driver/add')
+}
+
+// 编辑司机
+const handleEdit = (row: Driver) => {
+  router.push(`/driver/${row.id}/edit`)
+}
+
+// 查看历史
+const handleHistory = (row: Driver) => {
+  router.push(`/driver/${row.id}/history`)
+}
+
+// 删除司机
+const handleDelete = async (row: Driver) => {
+  try {
+    await ElMessageBox.confirm(
+      'Are you sure to delete this driver?',
+      'Warning',
+      {
+        confirmButtonText: 'Delete',
+        cancelButtonText: 'Cancel',
+        type: 'warning'
+      }
+    )
+    
+    // 从模拟数据中删除
+    const index = mockDrivers.findIndex(d => d.id === row.id)
+    if (index > -1) {
+      mockDrivers.splice(index, 1)
+      ElMessage.success('Driver deleted successfully')
+      loadDrivers()
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('Failed to delete driver')
+    }
+  }
+}
+
+// 封禁司机
+const handleBlock = async (row: Driver) => {
+  try {
+    await ElMessageBox.confirm(
+      'Are you sure to block this driver?',
+      'Warning',
+      {
+        confirmButtonText: 'Confirm',
+        cancelButtonText: 'Cancel',
+        type: 'warning'
+      }
+    )
+    
+    // TODO: 调用API封禁司机
+    await fetch(`/api/drivers/${row.id}/block`, {
+      method: 'POST'
+    })
+    
+    ElMessage.success('Driver blocked successfully')
+    loadDrivers()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('Failed to block driver')
+    }
+  }
+}
+
+// 分页大小改变
+const handleSizeChange = (val: number) => {
+  pageSize.value = val
+  loadDrivers()
+}
+
+// 页码改变
+const handleCurrentChange = (val: number) => {
+  currentPage.value = val
+  loadDrivers()
+}
+
+// 管理车辆
+const handleVehicles = (row: Driver) => {
+  router.push(`/driver/${row.id}/vehicles`)
+}
+
+// 统一的命令处理函数
+const handleCommand = (command: string, row: Driver) => {
+  switch (command) {
+    case 'edit':
+      handleEdit(row)
+      break
+    case 'vehicles':
+      handleVehicles(row)
+      break
+    case 'history':
+      handleHistory(row)
+      break
+    case 'block':
+      handleBlock(row)
+      break
+    case 'delete':
+      handleDelete(row)
+      break
+  }
+}
+
+// 初始加载
+loadDrivers()
 </script>
 
 <style scoped lang="scss">
-// ... 样式实现
+.driver-container {
+  padding: 20px;
+  background-color: var(--el-bg-color-page);
+  min-height: calc(100vh - 60px);
+}
+
+.search-card {
+  margin-bottom: 20px;
+  
+  .search-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .search-form {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    
+    .search-buttons {
+      margin-left: 12px;
+    }
+  }
+}
+
+.list-card {
+  .el-table {
+    margin: -20px;
+    margin-bottom: 0;
+  }
+}
+
+.driver-info {
+  .driver-name {
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .driver-contact {
+    display: flex;
+    gap: 16px;
+    color: var(--el-text-color-secondary);
+    font-size: 13px;
+
+    .el-icon {
+      margin-right: 4px;
+    }
+  }
+}
+
+.membership-info {
+  .expiry-date {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+  }
+}
+
+.pagination {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+:deep(.el-dropdown-menu__item) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  min-width: 120px;
+  
+  .el-icon {
+    margin-right: 4px;
+  }
+
+  &.danger {
+    color: var(--el-color-danger);
+  }
+}
 </style>

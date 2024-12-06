@@ -116,6 +116,16 @@
         </el-form>
       </div>
 
+      <!-- 设备配置 -->
+      <div v-if="currentConfigComponent" class="form-section">
+        <h3>Device Configuration</h3>
+        <component
+          :is="currentConfigComponent"
+          v-model="form.config"
+          ref="configRef"
+        />
+      </div>
+
       <!-- API配置 -->
       <div class="form-section">
         <h3>API Configuration</h3>
@@ -195,7 +205,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, shallowRef, markRaw, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ElMessage,
@@ -214,6 +224,11 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { getParkingLots } from '@/api/parking'
 import type { ParkingLot } from '@/types/parking'
+import CameraConfig from '@/components/device/config/CameraConfig.vue'
+import GateConfig from '@/components/device/config/GateConfig.vue'
+import RFIDConfig from '@/components/device/config/RFIDConfig.vue'
+import LiDARConfig from '@/components/device/config/LiDARConfig.vue'
+import LEDConfig from '@/components/device/config/LEDConfig.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -232,28 +247,49 @@ onMounted(async () => {
   }
 })
 
-// 表单数据
-const form = ref({
+// 表单数据类型
+interface DeviceFormData {
   // 位置信息
+  parkingLotId: string
+  location: string
+  installationDate: string
+
+  // 设备信息
+  name: string
+  type: string
+  brand: string
+  model: string
+  serialNumber: string
+  status: string
+
+  // API配置
+  apiEndpoint: string
+  apiKey: string
+  protocols: string[]
+
+  // 备注
+  notes: string
+
+  // 设备特定配置
+  config: Record<string, any>
+}
+
+// 表单数据
+const form = ref<DeviceFormData>({
   parkingLotId: '',
   location: '',
   installationDate: '',
-
-  // 设备信息
   name: '',
   type: '',
   brand: '',
   model: '',
   serialNumber: '',
   status: '',
-
-  // API配置
   apiEndpoint: '',
   apiKey: '',
   protocols: [],
-
-  // 备注
-  notes: ''
+  notes: '',
+  config: {}
 })
 
 // 验证规则
@@ -297,21 +333,109 @@ const rules: FormRules = {
   ]
 }
 
+// 设备配置组件映射
+const configComponents: Record<string, any> = {
+  camera: markRaw(CameraConfig),
+  gate: markRaw(GateConfig),
+  rfid: markRaw(RFIDConfig),
+  lidar: markRaw(LiDARConfig),
+  led: markRaw(LEDConfig)
+}
+
+// 当前配置组件
+const currentConfigComponent = shallowRef<any>(null)
+const configRef = ref<InstanceType<typeof CameraConfig> | null>(null)
+
+// 监听设备类型变化
+watch(() => form.value.type, (newType: string) => {
+  if (newType && configComponents[newType]) {
+    currentConfigComponent.value = configComponents[newType]
+    // 初始化默认配置
+    form.value.config = getDefaultConfig(newType)
+  } else {
+    currentConfigComponent.value = null
+  }
+})
+
+// 获取设备类型默认配置
+const getDefaultConfig = (type: string): Record<string, any> => {
+  const defaults: Record<string, any> = {
+    camera: {
+      name: '',
+      enabled: true,
+      resolution: '1080p',
+      fps: 30,
+      nightVision: true,
+      motionDetection: true,
+      storageRetentionDays: 30
+    },
+    gate: {
+      name: '',
+      enabled: true,
+      operationMode: 'automatic',
+      openDuration: 5,
+      obstacleDetection: true,
+      emergencyMode: 'maintain',
+      autoClose: true
+    },
+    rfid: {
+      name: '',
+      enabled: true,
+      frequency: '13.56MHz',
+      readRange: 100,
+      antiCollision: true,
+      cardTypes: [],
+      readTimeout: 1000
+    },
+    lidar: {
+      name: '',
+      enabled: true,
+      scanFrequency: 50,
+      rangeResolution: 1,
+      angularResolution: 0.1,
+      detectionRange: 30,
+      pointDensity: 100
+    },
+    led: {
+      name: '',
+      enabled: true,
+      brightness: 80,
+      autoBrightness: true,
+      refreshRate: 60,
+      colorDepth: 24,
+      displayMode: 'text'
+    }
+  }
+  return defaults[type] || { name: '', enabled: true }
+}
+
 // 保存设备
 const handleSave = async () => {
   if (!formRef.value) return
   
   try {
+    // 验证基本表单
     await formRef.value.validate()
+    
+    // 验证设备配置
+    if (configRef.value) {
+      await configRef.value.validate()
+    }
+    
     saving.value = true
 
-    // TODO: 调用API保存数据
-    console.log('Form data:', form.value)
+    const deviceData = {
+      ...form.value,
+      config: configRef.value?.getConfig() || form.value.config
+    }
 
-    ElMessage.success('Device saved successfully')
+    // TODO: 调用API保存数据
+    console.log('Device data:', deviceData)
+
+    ElMessage.success('设备保存成功')
     router.push('/device')
   } catch (error) {
-    ElMessage.error('Please check the form')
+    ElMessage.error('请检查表单填写是否正确')
   } finally {
     saving.value = false
   }

@@ -41,6 +41,194 @@ export interface Device {
   powerSupply: PowerSupply  // 电源类型
   errorLogging: boolean     // 错误日志支持
   notes?: string           // 备注
+
+  // 设备特定配置
+  config: DeviceConfig
+}
+
+// 设备特定配置接口
+export interface DeviceConfig {
+  name: string
+  enabled: boolean
+}
+
+// RFID配置
+export interface RFIDConfig extends DeviceConfig {
+  frequency: '125KHz' | '13.56MHz' | '900MHz' | '2.4GHz'
+  readRange: number // 读取范围(米)
+  rfidProtocol: ('EPCGen2' | 'ISO18000-6C' | 'ISO14443' | 'ISO15693')[]
+  tagCapacity: number // 标签容量
+  antiCollision: boolean // 防冲突
+  triggerMode: 'auto' | 'manual' | 'external' // 触发模式
+  readTimeout: number // 读取超时(毫秒)
+  powerLevel: number // 功率等级(dBm)
+}
+
+// 摄像头配置
+export interface CameraConfig extends DeviceConfig {
+  resolution: '720p' | '1080p' | '2K' | '4K'
+  frameRate: number // 帧率
+  features: {
+    nightVision: boolean // 夜视
+    autoFocus: boolean // 自动对焦
+    faceDetection: boolean // 人脸检测
+    lprEnabled: boolean // 车牌识别
+  }
+  streamProtocol: ('RTSP' | 'HTTP' | 'ONVIF')[] // 流媒体协议
+  storage: {
+    type: 'local' | 'cloud' | 'hybrid' // 存储类型
+    retentionDays: number // 保留天数
+  }
+  outputFormat: {
+    image: ('JPEG' | 'PNG')[]
+    video: ('MP4' | 'H264' | 'H265')[]
+  }
+}
+
+// 门禁配置
+export interface GateConfig extends DeviceConfig {
+  operationMode: 'automatic' | 'manual' | 'remote' // 操作模式
+  openDuration: number // 开门持续时间(秒)
+  closeDelay: number // 关门延迟(秒)
+  speedControl: {
+    opening: number // 开门速度(秒)
+    closing: number // 关门速度(秒)
+  }
+  sensors: {
+    vehicle: boolean // 车辆检测
+    obstacle: boolean // 障碍物检测
+    safety: boolean // 安全防夹
+  }
+  heightLimit: number // 限高(米)
+  emergencyMode: 'open' | 'close' | 'maintain' // 紧急模式
+  powerFailure: {
+    action: 'open' | 'close' | 'maintain' // 断电动作
+    batteryBackup: boolean // 电池备份
+  }
+}
+
+// LiDAR配置
+export interface LiDARConfig extends DeviceConfig {
+  scanRange: {
+    horizontal: number // 水平扫描范围(度)
+    vertical: number // 垂直扫描范围(度)
+  }
+  resolution: {
+    angular: number // 角分辨率(度)
+    distance: number // 距离分辨率(毫米)
+  }
+  pointCloud: {
+    format: 'PCD' | 'XYZ' | 'PLY' // 点云格式
+    density: number // 点云密度(点/度²)
+  }
+  accuracy: number // 精度(毫米)
+  frequency: number // 扫描频率(Hz)
+  scanMode: {
+    type: '2D' | '3D' // 扫描类型
+    pattern: 'full' | 'partial' // 扫描模式
+    coverage: number // 覆盖角度(度)
+  }
+  filters: {
+    noise: boolean // 噪声过滤
+    ground: boolean // 地面过滤
+    clustering: boolean // 聚类过滤
+  }
+}
+
+// 显示样式接口
+export interface DisplayStyle {
+  fontSize: number
+  fontColor: string
+  backgroundColor: string
+  scrolling: boolean
+  scrollSpeed: number
+}
+
+// LED显示屏配置
+export interface LEDConfig extends DeviceConfig {
+  // 硬件参数
+  hardware: {
+    resolution: {
+      width: number // 宽度(像素)
+      height: number // 高度(像素)
+    }
+    brightness: {
+      current: number // 当前亮度(nits)
+      auto: boolean // 自动调节
+      sensor: boolean // 光感器
+    }
+    display: {
+      refreshRate: number // 刷新率(Hz)
+      colorDepth: 8 | 16 | 24 | 32 // 色彩深度(bit)
+      pixelPitch: number // 像素间距(mm)
+    }
+  }
+
+  // 显示内容配置
+  display: {
+    content: {
+      // 停车场信息
+      parking: {
+        enabled: boolean
+        position: { x: number, y: number, width: number, height: number }
+        style: DisplayStyle
+        content: {
+          total: number
+          available: number
+          reserved: number
+          updateInterval: number
+        }
+      }
+
+      // 欢迎语
+      welcome: {
+        enabled: boolean
+        position: { x: number, y: number, width: number, height: number }
+        style: DisplayStyle
+        content: {
+          default: string // 默认欢迎语
+          special: Array<{
+            time: { start: string, end: string }
+            text: string
+          }>
+        }
+      }
+
+      // 收费信息
+      pricing: {
+        enabled: boolean
+        position: { x: number, y: number, width: number, height: number }
+        style: DisplayStyle
+        content: {
+          hourly: number
+          daily: number
+          monthly: number
+        }
+      }
+
+      // 日期时间
+      datetime: {
+        enabled: boolean
+        position: { x: number, y: number, width: number, height: number }
+        style: DisplayStyle
+        format: string
+      }
+
+      // 天气信息
+      weather: {
+        enabled: boolean
+        position: { x: number, y: number, width: number, height: number }
+        style: DisplayStyle
+        updateInterval: number
+      }
+    }
+  }
+
+  // 通信配置
+  communication: {
+    interface: ('RS232' | 'RS485' | 'Ethernet' | 'WiFi')[] // 通信接口
+    protocol: string // 通信协议
+  }
 }
 
 // 设备选项配置
@@ -250,8 +438,20 @@ export const mockDevices: Device[] = [
       macAddress: '00:14:22:01:23:45',
       port: 8080
     },
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z'
+    powerSupply: 'AC',
+    errorLogging: true,
+    config: {
+      name: 'Main Entrance RFID',
+      enabled: true,
+      frequency: '900MHz',
+      readRange: 100,
+      antiCollision: true,
+      rfidProtocol: ['EPCGen2'],
+      tagCapacity: 100,
+      triggerMode: 'auto',
+      readTimeout: 1000,
+      powerLevel: 20
+    } as RFIDConfig
   },
   {
     id: 'DEV002',
@@ -268,7 +468,29 @@ export const mockDevices: Device[] = [
       macAddress: '00:14:22:01:23:46',
       port: 8081
     },
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z'
+    powerSupply: 'AC',
+    errorLogging: true,
+    config: {
+      name: 'Exit Gate Control',
+      enabled: true,
+      operationMode: 'automatic',
+      openDuration: 10,
+      closeDelay: 5,
+      speedControl: {
+        opening: 3,
+        closing: 3
+      },
+      sensors: {
+        vehicle: true,
+        obstacle: true,
+        safety: true
+      },
+      heightLimit: 2.5,
+      emergencyMode: 'maintain',
+      powerFailure: {
+        action: 'maintain',
+        batteryBackup: true
+      }
+    } as GateConfig
   }
 ] 

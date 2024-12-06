@@ -1,16 +1,43 @@
-// 司机状态
+// 司机状态枚举
 export enum DriverStatus {
-  Active = 'active',      // 活跃用户
-  Inactive = 'inactive',  // 不活跃
-  Blocked = 'blocked'     // 黑名单
+  Active = 'active',
+  Inactive = 'inactive',
+  Blocked = 'blocked'
 }
 
-// 会员类型
+// 会员类型枚举
 export enum MembershipType {
-  None = 'none',          // 非会员
-  Regular = 'regular',    // 普通会员
-  Premium = 'premium',    // 高级会员
-  Corporate = 'corporate' // 企业用户
+  None = 'none',
+  Regular = 'regular',
+  Premium = 'premium',
+  VIP = 'vip'
+}
+
+// 车辆信息接口
+export interface VehicleInfo {
+  plateNumber: string
+  make: string
+  model: string
+  year?: number
+  color?: string
+}
+
+// 停车历史接口
+export interface ParkingHistory {
+  totalVisits: number
+  lastVisit: string
+  favoriteLocation: string
+}
+
+// 支付信息接口
+export interface PaymentInfo {
+  balance: number
+  autoRecharge: boolean
+  paymentMethods?: {
+    type: 'card' | 'wallet'
+    last4?: string
+    expiry?: string
+  }[]
 }
 
 // 司机信息接口
@@ -19,28 +46,20 @@ export interface Driver {
   name: string
   phone: string
   email?: string
-  licenseNumber: string   // 驾驶证号
+  licenseNumber: string
   status: DriverStatus
   membershipType: MembershipType
   membershipExpiry?: string
-  vehicleInfo: {
-    plateNumber: string   // 车牌号
-    make: string         // 品牌
-    model: string        // 型号
-    color: string        // 颜色
-    type: string         // 车型
-  }[]
-  parkingHistory: {
-    totalVisits: number
-    lastVisit: string
-    favoriteLocation: string
-  }
-  paymentInfo: {
-    preferredMethod?: string
-    balance: number
-    autoRecharge: boolean
-  }
-  notes?: string
+  vehicleInfo: VehicleInfo[]
+  parkingHistory: ParkingHistory
+  paymentInfo: PaymentInfo
   createdAt: string
   updatedAt: string
+}
+
+// 搜索表单接口
+export interface DriverSearchForm {
+  keyword: string
+  status: DriverStatus | ''
+  membershipType: MembershipType | ''
 } 
