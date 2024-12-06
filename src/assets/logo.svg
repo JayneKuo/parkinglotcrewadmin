@@ -1,0 +1,28 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="128" height="128" rx="16" fill="#1E3A8A"/>
+  
+  <!-- Outer Circle (Representing a tire/wheel) -->
+  <circle cx="64" cy="64" r="48" stroke="white" stroke-width="8"/>
+  
+  <!-- Letter P -->
+  <path d="M52 40H76C79.3137 40 82 42.6863 82 46V58C82 61.3137 79.3137 64 76 64H52V88M52 64V40" 
+    stroke="white" 
+    stroke-width="8" 
+    stroke-linecap="round" 
+    stroke-linejoin="round"
+  />
+  
+  <!-- Parking Lines -->
+  <path d="M38 52L44 52M38 64L44 64M38 76L44 76" 
+    stroke="white" 
+    stroke-width="4" 
+    stroke-linecap="round"
+  />
+  
+  <path d="M84 52L90 52M84 64L90 64M84 76L90 76" 
+    stroke="white" 
+    stroke-width="4" 
+    stroke-linecap="round"
+  />
+</svg> 
