@@ -1,314 +1,294 @@
 <template>
   <div class="merchant-container">
-    <div class="header-actions">
-      <el-button type="primary" @click="handleAdd">新增商户</el-button>
-    </div>
-
-    <el-table :data="merchantList" border style="width: 100%; margin-top: 20px;">
-      <el-table-column prop="name" label="商户名称" />
-      <el-table-column prop="contact" label="联系人" />
-      <el-table-column prop="phone" label="联系电话" />
-      <el-table-column prop="plan" label="套餐">
-        <template #default="{ row }">
-          <el-tag :type="getPlanTagType(row.plan.status)">
-            {{ row.plan.name }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="套餐权限">
-        <template #default="{ row }">
-          <el-tooltip 
-            effect="dark" 
-            :content="`车场数量限制: ${row.plan.parkingLotLimit}个`" 
-            placement="top"
-          >
-            <el-tag class="ml-2">车场: {{ row.plan.parkingLotLimit }}</el-tag>
-          </el-tooltip>
-          <el-tooltip 
-            effect="dark" 
-            :content="`员工数量限制: ${row.plan.staffLimit}人`" 
-            placement="top"
-          >
-            <el-tag type="success" class="ml-2">员工: {{ row.plan.staffLimit }}</el-tag>
-          </el-tooltip>
-          <el-tooltip 
-            effect="dark" 
-            :content="`APP功能: ${row.plan.appFeatures.join(', ')}`" 
-            placement="top"
-          >
-            <el-tag type="warning" class="ml-2">
-              APP: {{ row.plan.appFeatures.length }}项
-            </el-tag>
-          </el-tooltip>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="250">
-        <template #default="{ row }">
-          <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-          <el-button type="primary" link @click="handleConfig(row)">配置权限</el-button>
-          <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-
-    <!-- 商户表单弹窗 -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="formType === 'add' ? '新增商户' : '编辑商户'"
-      width="600px"
-    >
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
-        <el-form-item label="商户名称" prop="name">
-          <el-input v-model="form.name" />
-        </el-form-item>
-        <el-form-item label="联系人" prop="contact">
-          <el-input v-model="form.contact" />
-        </el-form-item>
-        <el-form-item label="联系电话" prop="phone">
-          <el-input v-model="form.phone" />
-        </el-form-item>
-        <el-form-item label="选择套餐" prop="planId">
-          <el-select v-model="form.planId" placeholder="请选择套餐">
+    <!-- 搜索区域 -->
+    <el-card class="search-card">
+      <div class="search-header">
+        <div class="search-form">
+          <el-input 
+            v-model="searchForm.keyword" 
+            placeholder="Search by name/phone/email" 
+            clearable
+            :prefix-icon="Search"
+            style="width: 300px"
+          />
+          <el-select v-model="searchForm.status" placeholder="Status" clearable>
             <el-option
-              v-for="plan in planList"
-              :key="plan.id"
-              :label="plan.name"
-              :value="plan.id"
+              v-for="status in merchantStatus"
+              :key="status.value"
+              :label="status.label"
+              :value="status.value"
             >
-              <span>{{ plan.name }}</span>
-              <span style="float: right; color: #8492a6; font-size: 13px">
-                {{ plan.isTrial ? '免费体验' : `¥${plan.price}/月` }}
-              </span>
+              <el-tag :type="getStatusType(status.value)" size="small">
+                {{ status.label }}
+              </el-tag>
             </el-option>
           </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
-      </template>
-    </el-dialog>
+          <div class="search-buttons">
+            <el-button type="primary" @click="handleSearch">Search</el-button>
+            <el-button @click="handleReset">Reset</el-button>
+          </div>
+        </div>
+        <el-button type="primary" @click="handleAdd">
+          <el-icon><Plus /></el-icon>Add Merchant
+        </el-button>
+      </div>
+    </el-card>
 
-    <!-- 权限配置弹窗 -->
-    <el-dialog
-      v-model="configDialogVisible"
-      title="权限配置"
-      width="600px"
-    >
-      <el-form ref="configFormRef" :model="configForm" label-width="120px">
-        <el-form-item label="车场数量限制">
-          <el-input-number v-model="configForm.parkingLotLimit" :min="1" />
-        </el-form-item>
-        <el-form-item label="员工数量限制">
-          <el-input-number v-model="configForm.staffLimit" :min="1" />
-        </el-form-item>
-        <el-form-item label="APP功能">
-          <el-checkbox-group v-model="configForm.appFeatures">
-            <div class="features-grid">
-              <div v-for="feature in APP_FEATURES" :key="feature.key" class="feature-item">
-                <el-checkbox :label="feature.key">
-                  {{ feature.name }}
-                  <el-tooltip 
-                    :content="feature.description" 
-                    placement="top"
-                  >
-                    <el-icon class="info-icon"><InfoFilled /></el-icon>
-                  </el-tooltip>
-                </el-checkbox>
+    <!-- 列表区域 -->
+    <el-card class="list-card">
+      <el-table :data="merchantList" border stripe>
+        <el-table-column label="Merchant" min-width="200">
+          <template #default="{ row }">
+            <div class="merchant-info">
+              <div class="merchant-name">{{ row.name }}</div>
+              <div class="merchant-contact">
+                <el-tooltip content="Phone">
+                  <span><el-icon><Phone /></el-icon>{{ row.phone }}</span>
+                </el-tooltip>
+                <el-tooltip v-if="row.email" content="Email">
+                  <span><el-icon><Message /></el-icon>{{ row.email }}</span>
+                </el-tooltip>
               </div>
             </div>
-          </el-checkbox-group>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="configDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleConfigSubmit">确定</el-button>
-      </template>
-    </el-dialog>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="businessType" label="Business Type" width="150" />
+        <el-table-column prop="address" label="Address" min-width="200" />
+
+        <el-table-column label="Status" width="120" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row.status)" size="small">
+              {{ row.status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="joinDate" label="Join Date" width="180" />
+
+        <el-table-column label="Actions" width="70" fixed="right" align="center">
+          <template #default="{ row }">
+            <el-dropdown trigger="hover" @command="(command) => handleCommand(command, row)">
+              <el-button type="primary" link>
+                <el-icon><More /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="edit">
+                    <el-icon><Edit /></el-icon>Edit
+                  </el-dropdown-item>
+                  <el-dropdown-item command="view">
+                    <el-icon><View /></el-icon>View
+                  </el-dropdown-item>
+                  <el-dropdown-item 
+                    v-if="row.status === 'active'"
+                    command="suspend"
+                    divided
+                  >
+                    <el-icon><CircleClose /></el-icon>Suspend
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    command="delete"
+                    class="danger"
+                  >
+                    <el-icon><Delete /></el-icon>Delete
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- 分页 -->
+      <div class="pagination">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="total"
+          layout="total, sizes, prev, pager, next"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
+    </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import type { FormInstance, FormRules } from 'element-plus'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { InfoFilled } from '@element-plus/icons-vue'
-import type { Merchant } from '@/types/merchant'
-import { APP_FEATURES } from '@/types/plan'
+import { ref } from 'vue'
+import { 
+  Plus, Edit, Delete, More, Search,
+  View, CircleClose, Phone, Message 
+} from '@element-plus/icons-vue'
 
-// 商户列表数据
-const merchantList = ref<Merchant[]>([
+// 搜索表单
+const searchForm = ref({
+  keyword: '',
+  status: ''
+})
+
+// 分页参数
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+
+// 商户列表
+const merchantList = ref([
   {
-    id: '1',
-    name: '示例商户1',
-    contact: '张三',
-    phone: '13800138000',
-    plan: {
-      id: '1',
-      name: '基础版',
-      status: 'active',
-      parkingLotLimit: 2,
-      staffLimit: 5,
-      appFeatures: ['qrCode', 'payment']
-    }
+    id: 'M001',
+    name: 'ABC Store',
+    phone: '(555) 123-4567',
+    email: 'contact@abcstore.com',
+    businessType: 'Retail',
+    address: '123 Main St, City',
+    status: 'active',
+    joinDate: '2024-01-01'
   }
 ])
 
-// 套餐列表数据
-const planList = ref([
-  {
-    id: '1',
-    name: '基础版',
-    price: 999,
-    isTrial: false
-  },
-  {
-    id: '2',
-    name: '专业版',
-    price: 1999,
-    isTrial: false
-  },
-  {
-    id: '3',
-    name: '免费体验版',
-    isTrial: true
+// 状态选项
+const merchantStatus = [
+  { label: 'Active', value: 'active' },
+  { label: 'Suspended', value: 'suspended' },
+  { label: 'Inactive', value: 'inactive' }
+]
+
+// 获取状态样式
+const getStatusType = (status: string) => {
+  switch (status) {
+    case 'active':
+      return 'success'
+    case 'suspended':
+      return 'warning'
+    case 'inactive':
+      return 'info'
+    default:
+      return 'info'
   }
-])
-
-// 弹窗控制
-const dialogVisible = ref(false)
-const configDialogVisible = ref(false)
-const formType = ref<'add' | 'edit'>('add')
-const formRef = ref<FormInstance>()
-const configFormRef = ref<FormInstance>()
-
-// 表单数据
-const form = reactive({
-  name: '',
-  contact: '',
-  phone: '',
-  planId: ''
-})
-
-// 权限配置表单
-const configForm = reactive({
-  parkingLotLimit: 1,
-  staffLimit: 1,
-  appFeatures: [] as string[]
-})
-
-// 表单验证规则
-const rules: FormRules = {
-  name: [{ required: true, message: '请输入商户名称', trigger: 'blur' }],
-  contact: [{ required: true, message: '请输入联系人', trigger: 'blur' }],
-  phone: [
-    { required: true, message: '请输入联系电话', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
-  ],
-  planId: [{ required: true, message: '请选择套餐', trigger: 'change' }]
 }
 
-// 获取套餐标签类型
-const getPlanTagType = (status: string) => {
-  const types: Record<string, string> = {
-    active: 'success',
-    trial: 'warning',
-    expired: 'danger'
-  }
-  return types[status] || 'info'
+// 搜索
+const handleSearch = () => {
+  // TODO: 实现搜索功能
 }
 
-// 新增商户
+// 重置搜索
+const handleReset = () => {
+  searchForm.value = {
+    keyword: '',
+    status: ''
+  }
+  handleSearch()
+}
+
+// 添加
 const handleAdd = () => {
-  formType.value = 'add'
-  Object.assign(form, {
-    name: '',
-    contact: '',
-    phone: '',
-    planId: ''
-  })
-  dialogVisible.value = true
+  // TODO: 实现添加功能
 }
 
-// 编辑商户
-const handleEdit = (row: Merchant) => {
-  formType.value = 'edit'
-  Object.assign(form, {
-    name: row.name,
-    contact: row.contact,
-    phone: row.phone,
-    planId: row.plan.id
-  })
-  dialogVisible.value = true
+// 统一的命令处理函数
+const handleCommand = (command: string, row: any) => {
+  switch (command) {
+    case 'edit':
+      // TODO: 实现编辑功能
+      break
+    case 'view':
+      // TODO: 实现查看功能
+      break
+    case 'suspend':
+      // TODO: 实现停用功能
+      break
+    case 'delete':
+      // TODO: 实现删除功能
+      break
+  }
 }
 
-// 配置权限
-const handleConfig = (row: Merchant) => {
-  Object.assign(configForm, {
-    parkingLotLimit: row.plan.parkingLotLimit,
-    staffLimit: row.plan.staffLimit,
-    appFeatures: row.plan.appFeatures
-  })
-  configDialogVisible.value = true
+// 分页处理
+const handleSizeChange = (val: number) => {
+  pageSize.value = val
+  handleSearch()
 }
 
-// 删除商户
-const handleDelete = (row: Merchant) => {
-  ElMessageBox.confirm('确认删除该商户？', '提示', {
-    type: 'warning'
-  }).then(() => {
-    ElMessage.success('删除成功')
-  })
-}
-
-// 提交表单
-const handleSubmit = async () => {
-  if (!formRef.value) return
-  await formRef.value.validate((valid) => {
-    if (valid) {
-      ElMessage.success(formType.value === 'add' ? '添加成功' : '修改成功')
-      dialogVisible.value = false
-    }
-  })
-}
-
-// 提交权限配置
-const handleConfigSubmit = () => {
-  ElMessage.success('配置已保存')
-  configDialogVisible.value = false
+const handleCurrentChange = (val: number) => {
+  currentPage.value = val
+  handleSearch()
 }
 </script>
 
 <style scoped lang="scss">
 .merchant-container {
   padding: 20px;
-  background-color: #fff;
-  border-radius: 4px;
-  
-  .header-actions {
-    margin-bottom: 20px;
-  }
-  
-  .ml-2 {
-    margin-left: 8px;
-  }
+  background-color: var(--el-bg-color-page);
+  min-height: calc(100vh - 60px);
+}
 
-  .features-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+.search-card {
+  margin-bottom: 20px;
+  
+  .search-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .search-form {
+    display: flex;
+    align-items: center;
     gap: 12px;
-
-    .feature-item {
-      display: flex;
-      align-items: center;
-
-      .info-icon {
-        margin-left: 4px;
-        font-size: 14px;
-        color: #909399;
-        cursor: help;
-      }
+    
+    .search-buttons {
+      margin-left: 12px;
     }
+  }
+}
+
+.list-card {
+  .el-table {
+    margin: -20px;
+    margin-bottom: 0;
+  }
+}
+
+.merchant-info {
+  .merchant-name {
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .merchant-contact {
+    display: flex;
+    gap: 16px;
+    color: var(--el-text-color-secondary);
+    font-size: 13px;
+
+    .el-icon {
+      margin-right: 4px;
+    }
+  }
+}
+
+.pagination {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+:deep(.el-dropdown-menu__item) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  min-width: 120px;
+  
+  .el-icon {
+    margin-right: 4px;
+  }
+
+  &.danger {
+    color: var(--el-color-danger);
   }
 }
 </style>

@@ -4,14 +4,26 @@ const deviceRoutes: RouteRecordRaw[] = [
   {
     path: '/device',
     component: () => import('@/layouts/default.vue'),
+    meta: {
+      title: 'Device Management',
+      icon: 'Monitor',
+      order: 20
+    },
     children: [
       {
         path: '',
         name: 'Device',
         component: () => import('@/views/device/index.vue'),
         meta: {
-          title: 'Device Management',
-          icon: 'Cpu'
+          title: 'Device List'
+        }
+      },
+      {
+        path: 'rfid',
+        name: 'RFID',
+        component: () => import('@/views/rfid/index.vue'),
+        meta: {
+          title: 'RFID Management'
         }
       },
       {

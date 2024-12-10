@@ -27,6 +27,11 @@
       <span>Valet Service</span>
     </el-menu-item>
     
+    <el-menu-item index="/dock">
+      <el-icon><Box /></el-icon>
+      <span>Dock Management</span>
+    </el-menu-item>
+    
     <el-menu-item index="/dispatch">
       <el-icon><SetUp /></el-icon>
       <span>Dispatch</span>
@@ -76,6 +81,7 @@
       <el-icon><Management /></el-icon>
       <span>Admin Dashboard</span>
     </el-menu-item>
+
   </el-menu>
 </template>
 
@@ -87,6 +93,7 @@ import {
   Location,
   Calendar,
   Van,
+  Box,
   SetUp,
   User,
   UserFilled,
