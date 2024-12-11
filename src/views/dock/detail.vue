@@ -70,14 +70,15 @@
           <el-descriptions :column="2" border>
             <el-descriptions-item label="Parking Lot">{{ reservationInfo.parkingLot }}</el-descriptions-item>
             <el-descriptions-item label="Address">{{ reservationInfo.address }}</el-descriptions-item>
+            <el-descriptions-item label="Area">{{ reservationInfo.area || 'Not assigned' }}</el-descriptions-item>
+            <el-descriptions-item label="Dock Number">
+              {{ reservationInfo.dockNumber || 'Will be assigned after check-in' }}
+            </el-descriptions-item>
             <el-descriptions-item label="Load Type">{{ reservationInfo.loadType }}</el-descriptions-item>
             <el-descriptions-item label="Billing Type">{{ reservationInfo.billingType }}</el-descriptions-item>
             <el-descriptions-item label="Parking Spaces">{{ reservationInfo.parkingSpaces }}</el-descriptions-item>
             <el-descriptions-item label="Start Time">{{ reservationInfo.startTime }}</el-descriptions-item>
             <el-descriptions-item label="Estimated Duration">{{ reservationInfo.estimatedDuration }}</el-descriptions-item>
-            <el-descriptions-item label="Dock Number">
-              {{ reservationInfo.dockNumber || 'Will be assigned after check-in' }}
-            </el-descriptions-item>
           </el-descriptions>
         </el-card>
 
@@ -340,12 +341,13 @@ const mockOrderDetail = {
   reservationInfo: {
     parkingLot: 'Main Warehouse Parking',
     address: '123 Logistics Ave, Shenzhen',
+    area: '',
+    dockNumber: 'D001',
     loadType: 'Container',
     billingType: 'Hourly',
     parkingSpaces: 2,
     startTime: '2024-03-10 10:00:00',
-    estimatedDuration: '2 hours',
-    dockNumber: 'D001'
+    estimatedDuration: '2 hours'
   },
   parkingInfo: {
     checkInTime: '2024-03-10 09:55:00',

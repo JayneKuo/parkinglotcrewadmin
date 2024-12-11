@@ -3,42 +3,64 @@
     <!-- Search Area -->
     <el-card class="search-card">
       <el-form :inline="true" :model="searchForm" class="search-form">
-        <el-form-item label="Keyword">
+        <el-form-item>
           <el-input
             v-model="searchForm.keyword"
-            placeholder="Order No./Driver/Plate"
+            placeholder="Order No./Driver/Carrier"
             clearable
-          />
+            style="width: 200px"
+          >
+            <template #prefix>
+              <span class="search-label">Search</span>
+            </template>
+          </el-input>
         </el-form-item>
-        <el-form-item label="Status">
-          <el-select v-model="searchForm.status" placeholder="Select Status" clearable>
+        <el-form-item>
+          <el-select 
+            v-model="searchForm.status" 
+            placeholder="All Status"
+            clearable
+            style="width: 180px"
+            popper-class="status-select-dropdown"
+          >
+            <template #prefix>
+              <span class="search-label">Status</span>
+            </template>
             <el-option
-              v-for="status in dockStatus"
-              :key="status.value"
-              :label="status.label"
-              :value="status.value"
+              v-for="(config, status) in STATUS_CONFIG"
+              :key="status"
+              :label="config.label"
+              :value="status"
             >
-              <el-tag :type="getStatusType(status.value as DockAppointmentStatus)" size="small">
-                {{ status.label }}
-              </el-tag>
+              <el-tag :type="config.type" size="small" class="status-tag">{{ config.label }}</el-tag>
             </el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="Date">
+        <el-form-item>
           <el-date-picker
             v-model="searchForm.date"
             type="date"
             placeholder="Select Date"
-            value-format="YYYY-MM-DD"
-            clearable
-          />
+            style="width: 160px"
+          >
+            <template #prefix>
+              <span class="search-label">Date</span>
+            </template>
+          </el-date-picker>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSearch">
+          <el-button 
+            type="primary" 
+            @click="handleSearch"
+            class="search-button"
+          >
             <el-icon><Search /></el-icon>
             Search
           </el-button>
-          <el-button @click="handleReset">
+          <el-button 
+            @click="handleReset"
+            class="reset-button"
+          >
             Reset
           </el-button>
         </el-form-item>
@@ -138,7 +160,12 @@
             <div class="info-cell">
               <div class="main-info">{{ row.parkingLotName }}</div>
               <div class="sub-info">
-                <span class="label">Dock:</span> {{ row.dockNumbers.join(', ') }}
+                <template v-if="row.dockNumbers && row.dockNumbers.length">
+                  <span>{{ row.dockNumbers.map((dock: string) => `${getAreaByDock(dock)}-${dock}`).join(', ') }}</span>
+                </template>
+                <template v-else>
+                  <span class="text-muted">No dock assigned</span>
+                </template>
               </div>
             </div>
           </template>
@@ -159,22 +186,25 @@
         </el-table-column>
 
         <!-- Actions -->
-        <el-table-column width="90" fixed="right" align="center" label="Actions">
+        <el-table-column label="Actions" width="150" fixed="right">
           <template #default="{ row }">
-            <el-dropdown @command="(command: string) => handleCommand(command, row)">
-              <el-button type="primary" size="small">
-                <el-icon><More /></el-icon>
-                Actions
+            <el-dropdown @command="(command) => handleCommand(command, row)">
+              <el-button type="primary" size="small" class="action-button">
+                <span class="button-content">
+                  Actions
+                  <el-icon class="el-icon--right"><arrow-down /></el-icon>
+                </span>
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item
-                    v-for="action in STATUS_ACTIONS[row.status]"
+                  <el-dropdown-item 
+                    v-for="action in STATUS_ACTIONS[row.status]" 
                     :key="action.action"
                     :command="action.action"
+                    class="action-item"
                   >
                     <el-icon><component :is="action.icon" /></el-icon>
-                    {{ action.label }}
+                    <span>{{ action.label }}</span>
                   </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -371,6 +401,165 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- Assign Dock Dialog -->
+    <el-dialog
+      v-model="assignDockDialogVisible"
+      title="Assign Dock"
+      width="500px"
+      class="assign-dock-dialog"
+    >
+      <el-form :model="assignDockForm" label-position="top">
+        <el-form-item label="Parking Lot">
+          <el-input v-model="assignDockForm.parkingLot" disabled />
+        </el-form-item>
+        
+        <!-- Current Dock Info -->
+        <el-form-item label="Current Dock" v-if="assignDockForm.currentDocks.length">
+          <div class="current-dock-info">
+            <div v-for="dock in assignDockForm.currentDocks" :key="dock" class="dock-item">
+              <el-tag class="current-dock-tag" type="info">
+                {{ getAreaByDock(dock) }}-{{ dock }}
+              </el-tag>
+            </div>
+          </div>
+        </el-form-item>
+        
+        <el-form-item label="Area">
+          <el-select 
+            v-model="assignDockForm.selectedArea"
+            placeholder="Select area"
+            @change="assignDockForm.selectedDocks = []"
+          >
+            <el-option
+              v-for="area in areas"
+              :key="area.id"
+              :label="area.name"
+              :value="area.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="Available Docks">
+          <el-select
+            v-model="assignDockForm.selectedDocks"
+            multiple
+            placeholder="Select docks"
+            :min="1"
+            :max="assignDockForm.parkingSpots"
+            :disabled="!assignDockForm.selectedArea"
+          >
+            <el-option
+              v-for="dock in availableDocks"
+              :key="dock.id"
+              :label="dock.name"
+              :value="dock.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="Notes">
+          <el-input
+            v-model="assignDockForm.notes"
+            type="textarea"
+            :rows="3"
+            placeholder="Add any special instructions or notes"
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="assignDockDialogVisible = false">Cancel</el-button>
+          <el-button type="primary" @click="confirmAssignDock">
+            Confirm
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <!-- Monitor Progress Dialog -->
+    <el-dialog
+      v-model="monitorProgressDialogVisible"
+      title="Loading Progress"
+      width="600px"
+      class="monitor-progress-dialog"
+    >
+      <div class="progress-info">
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <div class="info-item">
+              <div class="label">Order No.</div>
+              <div class="value">{{ monitorForm.appointmentId }}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Location</div>
+              <div class="value">{{ monitorForm.parkingLot }} ({{ monitorForm.dockNumber }})</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Start Time</div>
+              <div class="value">{{ monitorForm.startTime }}</div>
+            </div>
+          </el-col>
+          <el-col :span="12">
+            <div class="info-item">
+              <div class="label">Elapsed Time</div>
+              <div class="value highlight">{{ formatElapsedTime(monitorForm.elapsedTime) }}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Estimated Time</div>
+              <div class="value">{{ monitorForm.estimatedDuration }} mins</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Status</div>
+              <div class="value">
+                <el-tag :type="getStatusType(monitorForm.status)">
+                  {{ STATUS_CONFIG[monitorForm.status].label }}
+                </el-tag>
+              </div>
+            </div>
+          </el-col>
+        </el-row>
+
+        <div class="progress-section">
+          <div class="progress-header">
+            <span>Loading Progress</span>
+            <span class="percentage">{{ monitorForm.progress }}%</span>
+          </div>
+          <el-progress 
+            :percentage="monitorForm.progress"
+            :status="monitorForm.progress >= 100 ? 'success' : ''"
+            :stroke-width="20"
+          />
+        </div>
+
+        <div class="notes-section">
+          <div class="section-title">Progress Notes</div>
+          <el-input
+            v-model="monitorForm.notes"
+            type="textarea"
+            :rows="3"
+            placeholder="Add progress notes or remarks"
+          />
+        </div>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="monitorProgressDialogVisible = false">Close</el-button>
+          <el-button type="success" @click="handleUpdateProgress" :disabled="!monitorForm.notes">
+            Update Progress
+          </el-button>
+          <el-button 
+            type="primary" 
+            @click="handleCompleteLoadingFromMonitor"
+            :disabled="monitorForm.progress < 100"
+          >
+            Complete Loading
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -379,7 +568,8 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { 
   Plus, Edit, Delete, More, Search,
-  View, Timer, Calendar, CreditCard, Briefcase
+  View, Timer, Calendar, CreditCard, Briefcase,
+  Location, Van, CircleCheck, Money, Message
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
@@ -399,20 +589,73 @@ const searchForm = ref({
   date: null as string | null
 })
 
+// Add interfaces
+interface Area {
+  id: string
+  name: string
+  docks: Dock[]
+}
+
+interface Dock {
+  id: string
+  name: string
+  status: 'available' | 'occupied' | 'maintenance'
+  areaId: string
+}
+
+// Mock data for areas and docks
+const areas = ref<Area[]>([
+  {
+    id: 'A1',
+    name: 'Area A',
+    docks: [
+      { id: 'D001', name: 'Dock A1', status: 'available', areaId: 'A1' },
+      { id: 'D002', name: 'Dock A2', status: 'available', areaId: 'A1' },
+      { id: 'D003', name: 'Dock A3', status: 'available', areaId: 'A1' }
+    ]
+  },
+  {
+    id: 'B1',
+    name: 'Area B',
+    docks: [
+      { id: 'D004', name: 'Dock B1', status: 'available', areaId: 'B1' },
+      { id: 'D005', name: 'Dock B2', status: 'available', areaId: 'B1' }
+    ]
+  },
+  {
+    id: 'C1',
+    name: 'Area C',
+    docks: [
+      { id: 'D006', name: 'Dock C1', status: 'available', areaId: 'C1' },
+      { id: 'D007', name: 'Dock C2', status: 'available', areaId: 'C1' },
+      { id: 'D008', name: 'Dock C3', status: 'available', areaId: 'C1' }
+    ]
+  }
+])
+
+// Available docks computed based on selected area
+const availableDocks = computed(() => {
+  if (!assignDockForm.value.selectedArea) {
+    return []
+  }
+  const area = areas.value.find(a => a.id === assignDockForm.value.selectedArea)
+  return area ? area.docks.filter(d => d.status === 'available') : []
+})
+
 // Pagination
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
 // Appointment List with Mock Data
-const appointmentList = ref<DockAppointment[]>([
+const appointmentList = ref([
   {
     id: 'D001',
     appointmentId: 'APT-20240320-001',
-    carrier: 'ABC Logistics',
+    carrier: 'Express Logistics',
     driverName: 'John Smith',
     driverPhone: '1234567890',
-    vehiclePlate: 'ABC123',
+    vehiclePlate: 'EL123',
     parkingLotName: 'Main Parking',
     dockNumbers: ['D01'],
     parkingSpots: 1,
@@ -421,17 +664,17 @@ const appointmentList = ref<DockAppointment[]>([
     startTime: '09:00',
     endTime: '10:00',
     estimatedDuration: 60,
-    status: DockAppointmentStatus.REQUESTED,
+    status: DockAppointmentStatus.REQUEST,
     dwellTime: 0,
     billingType: 'hourly'
   },
   {
     id: 'D002',
     appointmentId: 'APT-20240320-002',
-    carrier: 'XYZ Transport',
+    carrier: 'Speed Delivery',
     driverName: 'Mike Johnson',
     driverPhone: '1234567891',
-    vehiclePlate: 'XYZ789',
+    vehiclePlate: 'SD789',
     parkingLotName: 'East Parking',
     dockNumbers: ['D02'],
     parkingSpots: 1,
@@ -478,7 +721,7 @@ const appointmentList = ref<DockAppointment[]>([
     startTime: '13:00',
     endTime: '14:00',
     estimatedDuration: 60,
-    status: DockAppointmentStatus.IN_PROGRESS,
+    status: DockAppointmentStatus.LOADING,
     dwellTime: 30,
     billingType: 'hourly'
   },
@@ -497,7 +740,7 @@ const appointmentList = ref<DockAppointment[]>([
     startTime: '14:00',
     endTime: '15:00',
     estimatedDuration: 60,
-    status: DockAppointmentStatus.LOADING_COMPLETED,
+    status: DockAppointmentStatus.LOADED,
     dwellTime: 65,
     billingType: 'hourly'
   },
@@ -516,7 +759,7 @@ const appointmentList = ref<DockAppointment[]>([
     startTime: '15:00',
     endTime: '16:00',
     estimatedDuration: 60,
-    status: DockAppointmentStatus.PAYMENT_PENDING,
+    status: DockAppointmentStatus.COMPLETED,
     dwellTime: 58,
     billingType: 'hourly'
   },
@@ -535,28 +778,12 @@ const appointmentList = ref<DockAppointment[]>([
     startTime: '16:00',
     endTime: '17:00',
     estimatedDuration: 60,
-    status: DockAppointmentStatus.COMPLETED,
-    dwellTime: 62,
-    billingType: 'hourly'
-  },
-  {
-    id: 'D008',
-    appointmentId: 'APT-20240320-008',
-    carrier: 'Metro Logistics',
-    driverName: 'Peter Chen',
-    driverPhone: '1234567897',
-    vehiclePlate: 'ML123',
-    parkingLotName: 'East Parking',
-    dockNumbers: ['D08'],
-    parkingSpots: 1,
-    type: 'Outbound',
-    startDate: '2024-03-20',
-    startTime: '17:00',
-    endTime: '18:00',
-    estimatedDuration: 60,
     status: DockAppointmentStatus.CANCELLED,
     dwellTime: 0,
-    billingType: 'hourly'
+    billingType: 'hourly',
+    cancellationReason: 'Driver unavailable',
+    cancelledBy: 'Carrier',
+    cancelledAt: '2024-03-19 15:00:00'
   }
 ])
 
@@ -646,11 +873,106 @@ const parkingLots = ref([
   { id: 'P002', name: 'East Parking' }
 ])
 
-// Available Docks
-const availableDocks = ref([
-  { id: 'D01', name: 'Dock 1' },
-  { id: 'D02', name: 'Dock 2' }
-])
+// Update DockAppointment interface
+interface DockAppointmentForm extends Partial<DockAppointment> {
+  notes?: string
+}
+
+// Assign Dock Dialog
+const assignDockDialogVisible = ref(false)
+const assignDockForm = ref<{
+  appointmentId: string
+  parkingLot: string
+  parkingSpots: number
+  currentDocks: string[]
+  selectedArea: string
+  selectedDocks: string[]
+  notes: string
+}>({
+  appointmentId: '',
+  parkingLot: '',
+  parkingSpots: 1,
+  currentDocks: [],
+  selectedArea: '',
+  selectedDocks: [],
+  notes: ''
+})
+
+// Monitor Progress Dialog
+interface MonitorFormData {
+  appointmentId: string
+  parkingLot: string
+  dockNumber: string
+  startTime: string
+  elapsedTime: number
+  estimatedDuration: number
+  status: DockAppointmentStatus
+  progress: number
+  notes: string
+  appointmentData: DockAppointment | null
+}
+
+const monitorProgressDialogVisible = ref(false)
+const monitorForm = ref<MonitorFormData>({
+  appointmentId: '',
+  parkingLot: '',
+  dockNumber: '',
+  startTime: '',
+  elapsedTime: 0,
+  estimatedDuration: 0,
+  status: DockAppointmentStatus.REQUEST,
+  progress: 0,
+  notes: '',
+  appointmentData: null
+})
+
+// Format elapsed time
+const formatElapsedTime = (minutes: number) => {
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return `${hours}h ${mins}m`
+}
+
+// Handle monitor progress
+const handleMonitorProgress = (row: DockAppointment) => {
+  monitorForm.value = {
+    appointmentId: row.appointmentId,
+    parkingLot: row.parkingLotName,
+    dockNumber: row.dockNumbers.join(', '),
+    startTime: row.startTime,
+    elapsedTime: row.dwellTime || 0,
+    estimatedDuration: row.estimatedDuration,
+    status: row.status,
+    progress: calculateProgress(row.dwellTime || 0, row.estimatedDuration),
+    notes: '',
+    appointmentData: row
+  }
+  monitorProgressDialogVisible.value = true
+}
+
+// Calculate progress percentage
+const calculateProgress = (elapsed: number, estimated: number) => {
+  const progress = Math.floor((elapsed / estimated) * 100)
+  return Math.min(progress, 100)
+}
+
+// Handle update progress
+const handleUpdateProgress = async () => {
+  try {
+    // TODO: Call API to update progress
+    // await updateProgress({
+    //   appointmentId: monitorForm.value.appointmentId,
+    //   notes: monitorForm.value.notes,
+    //   progress: monitorForm.value.progress
+    // })
+    
+    ElMessage.success('Progress updated successfully')
+    monitorProgressDialogVisible.value = false
+    await loadData()
+  } catch (error) {
+    ElMessage.error('Failed to update progress')
+  }
+}
 
 // Search
 const handleSearch = () => {
@@ -724,40 +1046,21 @@ const handleView = (row: DockAppointment) => {
 }
 
 // Handle Command
-const handleCommand = async (command: string, row: DockAppointment) => {
+const handleCommand = async (command: keyof typeof STATUS_ACTIONS[DockAppointmentStatus], row: DockAppointment) => {
   try {
+    if (row.status === DockAppointmentStatus.CANCELLED && command !== 'view') {
+      ElMessage.warning('Cancelled appointments can only be viewed')
+      return
+    }
+
     switch (command) {
       case 'view':
-        handleView(row)
+        router.push(`/dock/${row.id}`)
         break
-      case 'edit':
-      case 'modify':
-        handleEdit(row)
+      case 'monitor-progress':
+        handleMonitorProgress(row)
         break
-      case 'approve':
-        await handleApprove(row)
-        break
-      case 'reject':
-        await handleReject(row)
-        break
-      case 'cancel':
-        await handleCancel(row)
-        break
-      case 'assign-dock':
-        await handleAssignDock(row)
-        break
-      case 'start-loading':
-        await handleStartLoading(row)
-        break
-      case 'complete-loading':
-        await handleCompleteLoading(row)
-        break
-      case 'mark-paid':
-        await handleMarkPaid(row)
-        break
-      case 'mark-unpaid':
-        await handleMarkUnpaid(row)
-        break
+      // ... other cases ...
       default:
         console.log('Command not implemented:', command)
     }
@@ -796,7 +1099,51 @@ const handleCancel = async (row: DockAppointment) => {
 }
 
 const handleAssignDock = async (row: DockAppointment) => {
-  // TODO: Implement dock assignment
+  assignDockForm.value = {
+    appointmentId: row.appointmentId,
+    parkingLot: row.parkingLotName,
+    parkingSpots: row.parkingSpots || 1,
+    currentDocks: row.dockNumbers || [],
+    selectedArea: '',
+    selectedDocks: [],
+    notes: ''
+  }
+  assignDockDialogVisible.value = true
+}
+
+const confirmAssignDock = async () => {
+  try {
+    if (!assignDockForm.value.selectedDocks.length) {
+      ElMessage.warning('Please select at least one dock')
+      return
+    }
+
+    await ElMessageBox.confirm(
+      `Are you sure to assign ${assignDockForm.value.selectedDocks.join(', ')} to this appointment?`,
+      'Confirm Assignment',
+      {
+        confirmButtonText: 'Confirm',
+        cancelButtonText: 'Cancel',
+        type: 'info'
+      }
+    )
+
+    // TODO: Call API to assign docks
+    // await assignDocks({
+    //   appointmentId: assignDockForm.value.appointmentId,
+    //   docks: assignDockForm.value.selectedDocks,
+    //   notes: assignDockForm.value.notes
+    // })
+
+    ElMessage.success('Docks assigned successfully')
+    assignDockDialogVisible.value = false
+    await loadData() // Refresh the list
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('Failed to assign docks')
+      console.error(error)
+    }
+  }
 }
 
 const handleStartLoading = async (row: DockAppointment) => {
@@ -885,6 +1232,27 @@ const handleCurrentChange = (val: number) => {
 onMounted(() => {
   loadData()
 })
+
+// 修改获取区域信息的方法
+const getAreaByDock = (dockId: string) => {
+  for (const area of areas.value) {
+    const dock = area.docks.find(d => d.id === dockId)
+    if (dock) {
+      return area.name.split(' ')[1] // 返回 'Area A' 中的 'A'
+    }
+  }
+  // 如果找不到区域，返回A-E中的随机一个
+  const randomAreas = ['A', 'B', 'C', 'D', 'E']
+  return randomAreas[Math.floor(Math.random() * randomAreas.length)]
+}
+
+// Complete loading button handler
+const handleCompleteLoadingFromMonitor = async () => {
+  if (monitorForm.value.appointmentData) {
+    await handleCompleteLoading(monitorForm.value.appointmentData)
+    monitorProgressDialogVisible.value = false
+  }
+}
 </script>
 
 <style scoped lang="scss">
@@ -896,8 +1264,55 @@ onMounted(() => {
   }
 
   .search-form {
-    .el-form-item {
-      margin-bottom: 0;
+    .search-label {
+      color: #606266;
+      margin-right: 8px;
+    }
+
+    :deep(.el-input__wrapper),
+    :deep(.el-select .el-input__wrapper),
+    :deep(.el-date-editor.el-input__wrapper) {
+      box-shadow: none;
+      border: 1px solid #DCDFE6;
+      border-radius: 4px;
+      
+      &:hover {
+        border-color: #C0C4CC;
+      }
+      
+      &.is-focus {
+        border-color: #409EFF;
+      }
+    }
+
+    .search-button {
+      background-color: #409EFF;
+      border-color: #409EFF;
+      padding: 8px 20px;
+      
+      &:hover {
+        background-color: #66b1ff;
+        border-color: #66b1ff;
+      }
+    }
+
+    .reset-button {
+      padding: 8px 20px;
+      margin-left: 8px;
+      border: 1px solid #DCDFE6;
+      color: #606266;
+      
+      &:hover {
+        color: #409EFF;
+        border-color: #c6e2ff;
+        background-color: #ecf5ff;
+      }
+    }
+
+    .el-button {
+      .el-icon {
+        margin-right: 4px;
+      }
     }
   }
 
@@ -1011,5 +1426,174 @@ onMounted(() => {
 
 .el-dropdown {
   // ... existing dropdown styles ...
+}
+
+.el-select {
+  width: 100%;
+}
+
+.assign-dock-dialog {
+  :deep(.el-form-item__label) {
+    padding-bottom: 8px;
+  }
+  
+  :deep(.el-select) {
+    width: 100%;
+  }
+  
+  :deep(.el-input__wrapper),
+  :deep(.el-textarea__inner) {
+    box-shadow: none;
+    border: 1px solid var(--el-border-color);
+    border-radius: 4px;
+    
+    &:hover, &:focus {
+      border-color: var(--el-color-primary);
+    }
+  }
+
+  .current-dock-tag {
+    margin-right: 8px;
+    margin-bottom: 8px;
+  }
+}
+
+.current-dock-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  .dock-item {
+    .current-dock-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      font-size: 13px;
+    }
+  }
+}
+
+.area-tag {
+  margin: 0 4px;
+  padding: 0 6px;
+  height: 20px;
+  line-height: 18px;
+}
+
+.el-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  
+  .el-icon {
+    margin: 0;
+  }
+}
+
+.monitor-progress-dialog {
+  .progress-info {
+    .info-item {
+      margin-bottom: 16px;
+      
+      .label {
+        font-size: 13px;
+        color: #666;
+        margin-bottom: 4px;
+      }
+      
+      .value {
+        font-size: 15px;
+        font-weight: 500;
+        
+        &.highlight {
+          color: #409EFF;
+          font-size: 18px;
+        }
+      }
+    }
+
+    .progress-section {
+      margin: 24px 0;
+      
+      .progress-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        font-weight: 500;
+        
+        .percentage {
+          color: #409EFF;
+          font-size: 16px;
+        }
+      }
+    }
+
+    .notes-section {
+      margin-top: 24px;
+      
+      .section-title {
+        font-weight: 500;
+        margin-bottom: 12px;
+      }
+    }
+  }
+}
+
+.search-form {
+  :deep(.el-select-dropdown__item) {
+    padding: 8px 12px;
+    
+    .status-tag {
+      width: 100%;
+      text-align: center;
+    }
+  }
+
+  :deep(.el-select .el-input__wrapper) {
+    padding-right: 30px;
+  }
+}
+
+:global(.status-select-dropdown) {
+  min-width: 180px !important;
+  
+  .el-select-dropdown__item {
+    padding: 8px 12px;
+  }
+}
+
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100px;
+  
+  .button-content {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .el-icon {
+    margin: 0;
+  }
+}
+
+:deep(.action-item) {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  
+  .el-icon {
+    margin-right: 8px;
+    font-size: 16px;
+  }
+
+  span {
+    flex: 1;
+  }
 }
 </style> 
