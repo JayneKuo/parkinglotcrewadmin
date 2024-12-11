@@ -1,11 +1,10 @@
 // 预约状态枚举
 export enum DockAppointmentStatus {
-  REQUESTED = 'requested',
+  REQUEST = 'request',
   SCHEDULED = 'scheduled',
   ARRIVED = 'arrived',
-  IN_PROGRESS = 'in_progress',
-  LOADING_COMPLETED = 'loading_completed',
-  PAYMENT_PENDING = 'payment_pending',
+  LOADING = 'loading',
+  LOADED = 'loaded',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled'
 }
@@ -50,7 +49,7 @@ export interface DockAppointment {
 
 // 状态操作映射
 export const STATUS_ACTIONS = {
-  [DockAppointmentStatus.REQUESTED]: [
+  [DockAppointmentStatus.REQUEST]: [
     { action: 'view', label: 'View Details', icon: 'View' },
     { action: 'approve', label: 'Approve Request', icon: 'Check' },
     { action: 'modify', label: 'Modify Request', icon: 'Edit' },
@@ -59,45 +58,34 @@ export const STATUS_ACTIONS = {
   [DockAppointmentStatus.SCHEDULED]: [
     { action: 'view', label: 'View Details', icon: 'View' },
     { action: 'modify', label: 'Modify Appointment', icon: 'Edit' },
-    { action: 'cancel', label: 'Cancel Appointment', icon: 'Close' },
-    { action: 'monitor-checkin', label: 'Monitor Check-In', icon: 'Timer' }
+    { action: 'cancel', label: 'Cancel Appointment', icon: 'Close' }
   ],
   [DockAppointmentStatus.ARRIVED]: [
     { action: 'view', label: 'View Details', icon: 'View' },
     { action: 'assign-dock', label: 'Assign Dock', icon: 'Location' },
-    { action: 'start-loading', label: 'Start Unloading/Loading', icon: 'Van' }
+    { action: 'start-loading', label: 'Start Loading', icon: 'Van' }
   ],
-  [DockAppointmentStatus.IN_PROGRESS]: [
+  [DockAppointmentStatus.LOADING]: [
     { action: 'view', label: 'View Details', icon: 'View' },
     { action: 'monitor-progress', label: 'Monitor Progress', icon: 'Timer' },
-    { action: 'complete-loading', label: 'Mark as Loading Completed', icon: 'Check' }
+    { action: 'complete-loading', label: 'Complete Loading', icon: 'Check' }
   ],
-  [DockAppointmentStatus.LOADING_COMPLETED]: [
-    { action: 'view', label: 'View Details', icon: 'View' },
-    { action: 'verify-bill', label: 'Verify Bill', icon: 'Document' },
-    { action: 'await-payment', label: 'Await Payment', icon: 'Timer' },
-    { action: 'mark-unpaid', label: 'Mark as Payment Pending', icon: 'Money' }
-  ],
-  [DockAppointmentStatus.PAYMENT_PENDING]: [
+  [DockAppointmentStatus.LOADED]: [
     { action: 'view', label: 'View Details', icon: 'View' },
     { action: 'send-reminder', label: 'Send Payment Reminder', icon: 'Message' },
     { action: 'mark-paid', label: 'Mark as Paid', icon: 'Check' }
   ],
   [DockAppointmentStatus.COMPLETED]: [
-    { action: 'view', label: 'View Details', icon: 'View' },
-    { action: 'confirm-departure', label: 'Confirm Departure', icon: 'Right' },
-    { action: 'close-order', label: 'Close Order', icon: 'CircleCheck' }
+    { action: 'view', label: 'View Details', icon: 'View' }
   ],
   [DockAppointmentStatus.CANCELLED]: [
-    { action: 'view', label: 'View Details', icon: 'View' },
-    { action: 'record-reason', label: 'Record Cancellation Reason', icon: 'Edit' },
-    { action: 'release-resources', label: 'Release Resources', icon: 'Delete' }
+    { action: 'view', label: 'View Details', icon: 'View' }
   ]
 } as const
 
 // 状态显示配置
 export const STATUS_CONFIG = {
-  [DockAppointmentStatus.REQUESTED]: {
+  [DockAppointmentStatus.REQUEST]: {
     label: 'Request',
     type: 'info',
     color: '#909399'
@@ -112,20 +100,15 @@ export const STATUS_CONFIG = {
     type: 'warning',
     color: '#E6A23C'
   },
-  [DockAppointmentStatus.IN_PROGRESS]: {
+  [DockAppointmentStatus.LOADING]: {
     label: 'Loading',
     type: 'warning',
     color: '#F56C6C'
   },
-  [DockAppointmentStatus.LOADING_COMPLETED]: {
+  [DockAppointmentStatus.LOADED]: {
     label: 'Loaded',
     type: 'success',
     color: '#67C23A'
-  },
-  [DockAppointmentStatus.PAYMENT_PENDING]: {
-    label: 'Unpaid',
-    type: 'danger',
-    color: '#F56C6C'
   },
   [DockAppointmentStatus.COMPLETED]: {
     label: 'Completed',
