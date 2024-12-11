@@ -20,7 +20,7 @@ const deviceRoutes: RouteRecordRaw[] = [
       },
       {
         path: 'rfid',
-        name: 'RFID',
+        name: 'RFID', 
         component: () => import('@/views/rfid/index.vue'),
         meta: {
           title: 'RFID Management'

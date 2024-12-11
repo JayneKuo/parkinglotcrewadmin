@@ -131,8 +131,8 @@
         <el-table-column label="Status" width="120" align="center">
           <template #default="{ row }">
             <div class="status-info">
-              <el-tag :type="getStatusType(row.status)">
-                {{ row.status }}
+              <el-tag :type="getStatusType(row.status as DockAppointmentStatus)">
+                {{ STATUS_CONFIG[row.status as DockAppointmentStatus].label }}
               </el-tag>
               <div v-if="row.dwellTime > 0" class="dwell-time">
                 {{ row.dwellTime }}min
@@ -142,38 +142,24 @@
         </el-table-column>
 
         <!-- 操作按钮 -->
-        <el-table-column width="50" fixed="right" align="center">
+        <el-table-column width="80" fixed="right" align="center">
           <template #default="{ row }">
-            <el-dropdown trigger="hover" @command="(command) => handleCommand(command, row)">
+            <el-dropdown 
+              trigger="hover" 
+              @command="(command) => handleCommand(command, row)"
+            >
               <el-button type="primary" link>
                 <el-icon><More /></el-icon>
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item 
-                    v-if="row.status === 'scheduled'"
-                    command="check-in"
-                  >
-                    <el-icon><Timer /></el-icon>Check In
-                  </el-dropdown-item>
-                  <el-dropdown-item command="view">
-                    <el-icon><View /></el-icon>View Details
-                  </el-dropdown-item>
-                  <el-dropdown-item command="edit">
-                    <el-icon><Edit /></el-icon>Edit
-                  </el-dropdown-item>
-                  <el-dropdown-item 
-                    v-if="row.status === 'scheduled'"
-                    command="reschedule"
-                    divided
-                  >
-                    <el-icon><Calendar /></el-icon>Reschedule
-                  </el-dropdown-item>
                   <el-dropdown-item
-                    command="delete"
-                    class="danger"
+                    v-for="action in getStatusActions(row.status)"
+                    :key="action.action"
+                    :command="action.action"
                   >
-                    <el-icon><Delete /></el-icon>Cancel
+                    <el-icon><component :is="action.icon" /></el-icon>
+                    {{ action.label }}
                   </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -504,8 +490,8 @@
           {{ currentAppointment.date }} {{ currentAppointment.startTime }} - {{ currentAppointment.endTime }}
         </el-descriptions-item>
         <el-descriptions-item label="Status">
-          <el-tag :type="getStatusType(currentAppointment.status)">
-            {{ currentAppointment.status }}
+          <el-tag :type="getStatusType(currentAppointment.status as DockAppointmentStatus)">
+            {{ STATUS_CONFIG[currentAppointment.status as DockAppointmentStatus].label }}
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="Dwell Time" v-if="currentAppointment.dwellTime">
@@ -527,41 +513,20 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
-
-interface DockAppointmentList {
-  id: string
-  appointmentId: string
-  // 司机信息
-  carrier: string
-  driverName: string
-  driverPhone: string
-  vehiclePlate: string
-  // 预约信息
-  parkingLotName: string
-  dockNumbers: string[]
-  parkingSpots: number
-  type: 'Inbound' | 'Outbound'
-  startDate: string
-  startTime: string
-  endTime: string
-  estimatedDuration: number
-  // 货物信息
-  containerNumber?: string
-  poNumber?: string
-  cargoType?: string
-  totalWeight?: number
-  palletCount?: number
-  // 状态信息
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
-  dwellTime: number
-  billingType: 'hourly' | 'fixed' | 'daily'
-}
+import { 
+  DockAppointmentStatus, 
+  DockAppointment,
+  STATUS_ACTIONS,
+  STATUS_CONFIG 
+} from '@/types/dock'
 
 // 搜索表单
 const searchForm = ref({
   keyword: '',
   status: '',
-  date: null as Date | null
+  date: null as Date | null,
+  type: '',
+  paymentStatus: ''
 })
 
 // 统计数据
@@ -579,7 +544,7 @@ const pageSize = ref(10)
 const total = ref(0)
 
 // 预约列表
-const appointmentList = ref<DockAppointmentList[]>([
+const appointmentList = ref<DockAppointment[]>([
   {
     id: 'D001',
     appointmentId: 'APT-20240320-001',
@@ -588,8 +553,8 @@ const appointmentList = ref<DockAppointmentList[]>([
     driverPhone: '1234567890',
     vehiclePlate: 'ABC123',
     parkingLotName: 'Main Parking',
-    dockNumbers: ['D01', 'D02'],
-    parkingSpots: 2,
+    dockNumbers: [],
+    parkingSpots: 0,
     type: 'Inbound',
     startDate: '2024-03-20',
     startTime: '09:00',
@@ -600,7 +565,7 @@ const appointmentList = ref<DockAppointmentList[]>([
     cargoType: 'general',
     totalWeight: 15.5,
     palletCount: 12,
-    status: 'scheduled',
+    status: DockAppointmentStatus.REQUESTED,
     dwellTime: 0,
     billingType: 'hourly'
   },
@@ -612,8 +577,8 @@ const appointmentList = ref<DockAppointmentList[]>([
     driverPhone: '9876543210',
     vehiclePlate: 'XYZ789',
     parkingLotName: 'East Wing Parking',
-    dockNumbers: ['D03'],
-    parkingSpots: 1,
+    dockNumbers: [],
+    parkingSpots: 0,
     type: 'Outbound',
     startDate: '2024-03-20',
     startTime: '10:00',
@@ -623,8 +588,8 @@ const appointmentList = ref<DockAppointmentList[]>([
     cargoType: 'refrigerated',
     totalWeight: 8.2,
     palletCount: 6,
-    status: 'in_progress',
-    dwellTime: 45,
+    status: DockAppointmentStatus.SCHEDULED,
+    dwellTime: 0,
     billingType: 'fixed'
   },
   {
@@ -646,8 +611,8 @@ const appointmentList = ref<DockAppointmentList[]>([
     cargoType: 'hazardous',
     totalWeight: 12.0,
     palletCount: 8,
-    status: 'completed',
-    dwellTime: 65,
+    status: DockAppointmentStatus.ARRIVED,
+    dwellTime: 15,
     billingType: 'hourly'
   },
   {
@@ -669,34 +634,119 @@ const appointmentList = ref<DockAppointmentList[]>([
     cargoType: 'bulk',
     totalWeight: 25.0,
     palletCount: 20,
-    status: 'cancelled',
-    dwellTime: 0,
+    status: DockAppointmentStatus.IN_PROGRESS,
+    dwellTime: 45,
     billingType: 'daily'
+  },
+  {
+    id: 'D005',
+    appointmentId: 'APT-20240320-005',
+    carrier: 'Quick Logistics',
+    driverName: 'Emma Davis',
+    driverPhone: '3334445555',
+    vehiclePlate: 'QL123',
+    parkingLotName: 'Main Parking',
+    dockNumbers: ['D02'],
+    parkingSpots: 1,
+    type: 'Inbound',
+    startDate: '2024-03-20',
+    startTime: '11:00',
+    endTime: '12:00',
+    estimatedDuration: 60,
+    containerNumber: 'CONT567890',
+    cargoType: 'general',
+    totalWeight: 18.0,
+    palletCount: 15,
+    status: DockAppointmentStatus.LOADING_COMPLETED,
+    dwellTime: 65,
+    billingType: 'hourly'
+  },
+  {
+    id: 'D006',
+    appointmentId: 'APT-20240320-006',
+    carrier: 'Express Cargo',
+    driverName: 'David Lee',
+    driverPhone: '2223334444',
+    vehiclePlate: 'EC456',
+    parkingLotName: 'East Wing Parking',
+    dockNumbers: ['D04'],
+    parkingSpots: 1,
+    type: 'Outbound',
+    startDate: '2024-03-20',
+    startTime: '13:00',
+    endTime: '14:00',
+    estimatedDuration: 60,
+    poNumber: 'PO-2024-006',
+    cargoType: 'refrigerated',
+    totalWeight: 10.0,
+    palletCount: 10,
+    status: DockAppointmentStatus.PAYMENT_PENDING,
+    dwellTime: 75,
+    billingType: 'fixed',
+    paymentAmount: 150
+  },
+  {
+    id: 'D007',
+    appointmentId: 'APT-20240320-007',
+    carrier: 'Safe Transport',
+    driverName: 'Linda White',
+    driverPhone: '1112223333',
+    vehiclePlate: 'ST789',
+    parkingLotName: 'South Parking',
+    dockNumbers: ['D05'],
+    parkingSpots: 1,
+    type: 'Inbound',
+    startDate: '2024-03-20',
+    startTime: '15:00',
+    endTime: '16:00',
+    estimatedDuration: 60,
+    containerNumber: 'CONT901234',
+    cargoType: 'hazardous',
+    totalWeight: 20.0,
+    palletCount: 16,
+    status: DockAppointmentStatus.COMPLETED,
+    dwellTime: 62,
+    billingType: 'hourly',
+    paymentStatus: 'paid',
+    paymentAmount: 200
+  },
+  {
+    id: 'D008',
+    appointmentId: 'APT-20240320-008',
+    carrier: 'City Logistics',
+    driverName: 'Peter Chen',
+    driverPhone: '9998887777',
+    vehiclePlate: 'CL321',
+    parkingLotName: 'Main Parking',
+    dockNumbers: ['D01'],
+    parkingSpots: 2,
+    type: 'Outbound',
+    startDate: '2024-03-20',
+    startTime: '16:00',
+    endTime: '17:00',
+    estimatedDuration: 60,
+    poNumber: 'PO-2024-008',
+    cargoType: 'general',
+    totalWeight: 15.0,
+    palletCount: 12,
+    status: DockAppointmentStatus.CANCELLED,
+    dwellTime: 0,
+    billingType: 'daily',
+    cancellationReason: '司机临时有事',
+    cancelledBy: 'user123',
+    cancelledAt: '2024-03-19T18:00:00Z'
   }
 ])
 
 // 状态选项
-const dockStatus = [
-  { label: 'Scheduled', value: 'scheduled' },
-  { label: 'In Progress', value: 'in_progress' },
-  { label: 'Completed', value: 'completed' },
-  { label: 'Cancelled', value: 'cancelled' }
-]
+const dockStatus = Object.entries(STATUS_CONFIG).map(([value, config]) => ({
+  value,
+  label: config.label
+}))
 
 // 获取状态样式
-const getStatusType = (status: string) => {
-  switch (status) {
-    case 'scheduled':
-      return 'info'
-    case 'in_progress':
-      return 'warning'
-    case 'completed':
-      return 'success'
-    case 'cancelled':
-      return 'danger'
-    default:
-      return 'info'
-  }
+const getStatusType = (status: DockAppointmentStatus) => {
+  return STATUS_CONFIG[status].type
 }
 
 // 对话框控制
@@ -704,7 +754,7 @@ const dialogVisible = ref(false)
 const dialogType = ref<'add' | 'edit'>('add')
 const detailVisible = ref(false)
 const submitting = ref(false)
-const currentAppointment = ref<DockAppointmentList | null>(null)
+const currentAppointment = ref<DockAppointment | null>(null)
 
 // 在 appointmentForm 之前添加
 const maxWeight = ref(0)
@@ -716,21 +766,11 @@ interface AppointmentForm {
   dockNumber: string
   type: 'Inbound' | 'Outbound'
   
-  // 集装箱/PO信息
-  containerNumbers: string  // 集装箱号，多个用空格分隔
-  poNumbers: string        // PO号，多个用空格分隔
-  
-  // 货物信息
-  palletCount: number     // 托盘数
-  loadId: string          // 装载ID
-  containerId: string     // 集装箱ID
-  
-  // 时间信息
+  // 预约信息
   startDate: string
   startTime: string
-  estimatedDuration: number  // 以分钟为单位
-  importDrayageDate: string  // 进口拖车日期
-  domesticDeliveryDate: string  // 国内交付日期
+  endTime: string
+  estimatedDuration: number
   
   // 司机信息
   carrier: string
@@ -739,10 +779,21 @@ interface AppointmentForm {
   driverEmail: string
   vehiclePlate: string
   
+  // 货物信息
+  containerNumber?: string
+  poNumber?: string
+  cargoType?: string
+  totalWeight?: number
+  palletCount: number
+  dockNumbers: string[]
+  parkingSpots: number
+  
+  // 计费信息
+  billingType: 'hourly' | 'fixed' | 'daily'
+  
   // 其他信息
-  specialInstructions: string  // 特殊说明
-  specialRequirements: string[]  // 添加这个字段
-  totalWeight: number          // 添加 totalWeight 字段
+  specialInstructions: string
+  specialRequirements: string[]
 }
 
 // 修改表单默认值
@@ -750,29 +801,25 @@ const appointmentForm = ref<AppointmentForm>({
   parkingLotId: '',
   dockNumber: '',
   type: 'Inbound',
-  
-  containerNumbers: '',
-  poNumbers: '',
-  
-  palletCount: 0,
-  loadId: '',
-  containerId: '',
-  
   startDate: '',
   startTime: '',
-  estimatedDuration: 60,  // 默认1小时
-  importDrayageDate: '',
-  domesticDeliveryDate: '',
-  
+  endTime: '',
+  estimatedDuration: 60,
   carrier: '',
   driverName: '',
   driverPhone: '',
   driverEmail: '',
   vehiclePlate: '',
-  
-  specialInstructions: '',
-  specialRequirements: [],
+  containerNumber: '',
+  poNumber: '',
+  cargoType: '',
   totalWeight: 0,
+  palletCount: 0,
+  dockNumbers: [],
+  parkingSpots: 1,
+  billingType: 'hourly',
+  specialInstructions: '',
+  specialRequirements: []
 })
 
 // 停车场列表
@@ -961,35 +1008,31 @@ const handleAdd = () => {
     parkingLotId: '',
     dockNumber: '',
     type: 'Inbound',
-    
-    containerNumbers: '',
-    poNumbers: '',
-    
-    palletCount: 0,
-    loadId: '',
-    containerId: '',
-    
     startDate: '',
     startTime: '',
-    estimatedDuration: 60,  // 默认1小时
-    importDrayageDate: '',
-    domesticDeliveryDate: '',
-    
+    endTime: '',
+    estimatedDuration: 60,
     carrier: '',
     driverName: '',
     driverPhone: '',
     driverEmail: '',
     vehiclePlate: '',
-    
-    specialInstructions: '',
-    specialRequirements: [],
+    containerNumber: '',
+    poNumber: '',
+    cargoType: '',
     totalWeight: 0,
+    palletCount: 0,
+    dockNumbers: [],
+    parkingSpots: 1,
+    billingType: 'hourly',
+    specialInstructions: '',
+    specialRequirements: []
   }
   dialogVisible.value = true
 }
 
 // 修改编辑方法
-const handleEdit = (row: DockAppointmentList) => {
+const handleEdit = (row: DockAppointment) => {
   dialogType.value = 'edit'
   appointmentForm.value = {
     ...row,
@@ -999,13 +1042,13 @@ const handleEdit = (row: DockAppointmentList) => {
 }
 
 // 查看详情
-const handleView = (row: DockAppointmentList) => {
+const handleView = (row: DockAppointment) => {
   currentAppointment.value = row
   detailVisible.value = true
 }
 
 // 签到处理
-const handleCheckIn = async (row: DockAppointmentList) => {
+const handleCheckIn = async (row: DockAppointment) => {
   try {
     // TODO: 调用API进行签到
     await new Promise(resolve => setTimeout(resolve, 1000))
@@ -1046,38 +1089,82 @@ const handleSubmit = async () => {
 }
 
 // 修改命令处理函数
-const handleCommand = (command: string, row: DockAppointmentList) => {
-  switch (command) {
-    case 'edit':
-      handleEdit(row)
-      break
-    case 'view':
-      handleView(row)
-      break
-    case 'reschedule':
-      handleEdit(row)
-      break
-    case 'delete':
-      ElMessageBox.confirm(
-        'Are you sure you want to cancel this appointment?',
-        'Warning',
-        {
-          confirmButtonText: 'Yes',
-          cancelButtonText: 'No',
-          type: 'warning'
-        }
-      ).then(async () => {
-        try {
-          // TODO: 调用API取消预约
-          await new Promise(resolve => setTimeout(resolve, 1000))
-          ElMessage.success('Appointment cancelled successfully')
-          handleSearch()
-        } catch (error) {
-          ElMessage.error('Operation failed')
-        }
-      })
-      break
+const handleCommand = async (command: string, row: DockAppointment) => {
+  try {
+    switch (command) {
+      // 请求状态的操作
+      case 'approve':
+        await handleApproveRequest(row)
+        break
+      case 'reject':
+        await handleRejectRequest(row)
+        break
+      
+      // 预约确认状态的操作
+      case 'modify':
+        await handleModifyAppointment(row)
+        break
+      case 'cancel':
+        await handleCancelAppointment(row)
+        break
+      
+      // 到达状态的操作
+      case 'assign-dock':
+        await handleAssignDock(row)
+        break
+      case 'start-loading':
+        await handleStartLoading(row)
+        break
+      
+      // 进行中状态的操作
+      case 'monitor-progress':
+        await handleMonitorProgress(row)
+        break
+      case 'complete-loading':
+        await handleCompleteLoading(row)
+        break
+      
+      // 装卸完成态的操作
+      case 'verify-bill':
+        await handleVerifyBill(row)
+        break
+      case 'mark-unpaid':
+        await handleMarkUnpaid(row)
+        break
+      
+      // 待支付状态的操作
+      case 'send-reminder':
+        await handleSendReminder(row)
+        break
+      case 'mark-paid':
+        await handleMarkPaid(row)
+        break
+      
+      // 完成状态的操作
+      case 'confirm-departure':
+        await handleConfirmDeparture(row)
+        break
+      case 'close-order':
+        await handleCloseOrder(row)
+        break
+      
+      // 取消状态的操作
+      case 'record-reason':
+        await handleRecordReason(row)
+        break
+      case 'release-resources':
+        await handleReleaseResources(row)
+        break
+    }
+    await loadData() // 刷新数据
+  } catch (error) {
+    ElMessage.error('Operation failed')
   }
+}
+
+// 添加操作按钮下拉菜单
+const getStatusActions = (status: DockAppointmentStatus) => {
+  return STATUS_ACTIONS[status] || []
 }
 
 // 修改搜索功能实现
@@ -1181,6 +1268,180 @@ watch(() => appointmentForm.value.parkingSpots, (newValue) => {
     appointmentForm.value.parkingSpots = availableSpots.value
   }
 })
+
+// 添加可用车位数的 ref
+const availableSpots = ref(0)
+
+// 添加状态处理函数
+const handleApproveRequest = async (row: DockAppointment) => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    ElMessage.success('Request approved')
+  } catch (error) {
+    throw new Error('Failed to approve request')
+  }
+}
+
+const handleRejectRequest = async (row: DockAppointment) => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    ElMessage.success('Request rejected')
+  } catch (error) {
+    throw new Error('Failed to reject request')
+  }
+}
+
+// 添加其他状态处理函数
+const handleModifyAppointment = async (row: DockAppointment) => {
+  dialogType.value = 'edit'
+  appointmentForm.value = {
+    ...row,
+    parkingLotId: row.parkingLotName, // 临时映射
+    dockNumber: row.dockNumbers[0], // 临时使用第一个码头
+    driverEmail: '', // 补充缺失字段
+    specialRequirements: [], // 补充缺失字段
+    specialInstructions: '' // 补充缺失字段
+  }
+  dialogVisible.value = true
+}
+
+const handleCancelAppointment = async (row: DockAppointment) => {
+  try {
+    await ElMessageBox.confirm(
+      'Are you sure you want to cancel this appointment?',
+      'Warning',
+      {
+        confirmButtonText: 'Yes',
+        cancelButtonText: 'No',
+        type: 'warning'
+      }
+    )
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    ElMessage.success('Appointment cancelled successfully')
+  } catch (error) {
+    if (error !== 'cancel') {
+      throw new Error('Failed to cancel appointment')
+    }
+  }
+}
+
+const handleAssignDock = async (row: DockAppointment) => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    ElMessage.success('Dock assigned successfully')
+  } catch (error) {
+    throw new Error('Failed to assign dock')
+  }
+}
+
+const handleStartLoading = async (row: DockAppointment) => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    ElMessage.success('Loading started')
+  } catch (error) {
+    throw new Error('Failed to start loading')
+  }
+}
+
+const handleMonitorProgress = async (row: DockAppointment) => {
+  // 打开监控对话框或跳转到监控页面
+  router.push(`/dock/monitor/${row.id}`)
+}
+
+const handleCompleteLoading = async (row: DockAppointment) => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    ElMessage.success('Loading completed')
+  } catch (error) {
+    throw new Error('Failed to complete loading')
+  }
+}
+
+const handleVerifyBill = async (row: DockAppointment) => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    ElMessage.success('Bill verified')
+  } catch (error) {
+    throw new Error('Failed to verify bill')
+  }
+}
+
+const handleMarkUnpaid = async (row: DockAppointment) => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    ElMessage.success('Marked as payment pending')
+  } catch (error) {
+    throw new Error('Failed to mark as unpaid')
+  }
+}
+
+const handleSendReminder = async (row: DockAppointment) => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    ElMessage.success('Payment reminder sent')
+  } catch (error) {
+    throw new Error('Failed to send reminder')
+  }
+}
+
+const handleMarkPaid = async (row: DockAppointment) => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    ElMessage.success('Marked as paid')
+  } catch (error) {
+    throw new Error('Failed to mark as paid')
+  }
+}
+
+const handleConfirmDeparture = async (row: DockAppointment) => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    ElMessage.success('Departure confirmed')
+  } catch (error) {
+    throw new Error('Failed to confirm departure')
+  }
+}
+
+const handleCloseOrder = async (row: DockAppointment) => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    ElMessage.success('Order closed')
+  } catch (error) {
+    throw new Error('Failed to close order')
+  }
+}
+
+const handleRecordReason = async (row: DockAppointment) => {
+  try {
+    const { value: reason } = await ElMessageBox.prompt(
+      'Please enter cancellation reason',
+      'Record Reason',
+      {
+        confirmButtonText: 'Submit',
+        cancelButtonText: 'Cancel',
+        inputValidator: (value) => !!value,
+        inputErrorMessage: 'Reason is required'
+      }
+    )
+    if (reason) {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      ElMessage.success('Reason recorded')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      throw new Error('Failed to record reason')
+    }
+  }
+}
+
+const handleReleaseResources = async (row: DockAppointment) => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    ElMessage.success('Resources released')
+  } catch (error) {
+    throw new Error('Failed to release resources')
+  }
+}
 </script>
 
 <style scoped lang="scss">
