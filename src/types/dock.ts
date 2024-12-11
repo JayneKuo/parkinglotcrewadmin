@@ -51,54 +51,54 @@ export interface DockAppointment {
 // 状态操作映射
 export const STATUS_ACTIONS = {
   [DockAppointmentStatus.REQUESTED]: [
+    { action: 'view', label: 'View Details', icon: 'View' },
     { action: 'approve', label: 'Approve Request', icon: 'Check' },
     { action: 'modify', label: 'Modify Request', icon: 'Edit' },
-    { action: 'reject', label: 'Reject Request', icon: 'Close' },
-    { action: 'view', label: 'View Details', icon: 'View' }
+    { action: 'reject', label: 'Reject Request', icon: 'Close' }
   ],
   [DockAppointmentStatus.SCHEDULED]: [
+    { action: 'view', label: 'View Details', icon: 'View' },
     { action: 'modify', label: 'Modify Appointment', icon: 'Edit' },
-    { action: 'cancel', label: 'Cancel Appointment', icon: 'Delete' },
-    { action: 'check-in', label: 'Check In', icon: 'Timer' },
-    { action: 'view', label: 'View Details', icon: 'View' }
+    { action: 'cancel', label: 'Cancel Appointment', icon: 'Close' },
+    { action: 'monitor-checkin', label: 'Monitor Check-In', icon: 'Timer' }
   ],
   [DockAppointmentStatus.ARRIVED]: [
+    { action: 'view', label: 'View Details', icon: 'View' },
     { action: 'assign-dock', label: 'Assign Dock', icon: 'Location' },
-    { action: 'start-loading', label: 'Start Loading', icon: 'Timer' },
-    { action: 'view', label: 'View Details', icon: 'View' }
+    { action: 'start-loading', label: 'Start Unloading/Loading', icon: 'Van' }
   ],
   [DockAppointmentStatus.IN_PROGRESS]: [
-    { action: 'monitor-progress', label: 'Monitor Progress', icon: 'Loading' },
-    { action: 'complete-loading', label: 'Mark as Loading Completed', icon: 'Check' },
-    { action: 'view', label: 'View Details', icon: 'View' }
+    { action: 'view', label: 'View Details', icon: 'View' },
+    { action: 'monitor-progress', label: 'Monitor Progress', icon: 'Timer' },
+    { action: 'complete-loading', label: 'Mark as Loading Completed', icon: 'Check' }
   ],
   [DockAppointmentStatus.LOADING_COMPLETED]: [
+    { action: 'view', label: 'View Details', icon: 'View' },
     { action: 'verify-bill', label: 'Verify Bill', icon: 'Document' },
-    { action: 'mark-unpaid', label: 'Mark as Payment Pending', icon: 'Money' },
     { action: 'await-payment', label: 'Await Payment', icon: 'Timer' },
-    { action: 'view', label: 'View Details', icon: 'View' }
+    { action: 'mark-unpaid', label: 'Mark as Payment Pending', icon: 'Money' }
   ],
   [DockAppointmentStatus.PAYMENT_PENDING]: [
-    { action: 'send-reminder', label: 'Send Payment Reminder', icon: 'Bell' },
-    { action: 'mark-paid', label: 'Mark as Paid', icon: 'Check' },
-    { action: 'view', label: 'View Details', icon: 'View' }
+    { action: 'view', label: 'View Details', icon: 'View' },
+    { action: 'send-reminder', label: 'Send Payment Reminder', icon: 'Message' },
+    { action: 'mark-paid', label: 'Mark as Paid', icon: 'Check' }
   ],
   [DockAppointmentStatus.COMPLETED]: [
-    { action: 'confirm-departure', label: 'Confirm Departure', icon: 'Van' },
-    { action: 'close-order', label: 'Close Order', icon: 'Finished' },
-    { action: 'view', label: 'View Details', icon: 'View' }
+    { action: 'view', label: 'View Details', icon: 'View' },
+    { action: 'confirm-departure', label: 'Confirm Departure', icon: 'Right' },
+    { action: 'close-order', label: 'Close Order', icon: 'CircleCheck' }
   ],
   [DockAppointmentStatus.CANCELLED]: [
-    { action: 'record-reason', label: 'Record Cancellation Reason', icon: 'Document' },
-    { action: 'release-resources', label: 'Release Resources', icon: 'Delete' },
-    { action: 'view', label: 'View Details', icon: 'View' }
+    { action: 'view', label: 'View Details', icon: 'View' },
+    { action: 'record-reason', label: 'Record Cancellation Reason', icon: 'Edit' },
+    { action: 'release-resources', label: 'Release Resources', icon: 'Delete' }
   ]
 } as const
 
 // 状态显示配置
 export const STATUS_CONFIG = {
   [DockAppointmentStatus.REQUESTED]: {
-    label: 'Requested',
+    label: 'Request',
     type: 'info',
     color: '#909399'
   },
@@ -113,17 +113,17 @@ export const STATUS_CONFIG = {
     color: '#E6A23C'
   },
   [DockAppointmentStatus.IN_PROGRESS]: {
-    label: 'In Progress',
+    label: 'Loading',
     type: 'warning',
     color: '#F56C6C'
   },
   [DockAppointmentStatus.LOADING_COMPLETED]: {
-    label: 'Loading Completed',
+    label: 'Loaded',
     type: 'success',
     color: '#67C23A'
   },
   [DockAppointmentStatus.PAYMENT_PENDING]: {
-    label: 'Payment Pending',
+    label: 'Unpaid',
     type: 'danger',
     color: '#F56C6C'
   },

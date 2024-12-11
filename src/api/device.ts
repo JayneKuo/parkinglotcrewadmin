@@ -8,6 +8,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 export const getDevices = async () => {
   await delay(500)
   return mockDevices
+  
 }
 
 // 获取设备详情
