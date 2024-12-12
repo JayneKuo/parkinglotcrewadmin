@@ -9,29 +9,29 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@chenfengyuan/vue-qrcode": "^2.0.0",
-    "@element-plus/icons-vue": "^2.3.1",
-    "@googlemaps/js-api-loader": "^1.16.2",
-    "@iconify/vue": "^4.1.1",
-    "@vueuse/core": "^10.7.2",
-    "axios": "^1.6.7",
-    "date-fns": "^4.1.0",
-    "echarts": "^5.4.3",
-    "element-plus": "^2.5.6",
-    "html2canvas": "^1.4.1",
-    "pinia": "^2.1.7",
-    "vue": "^3.3.0",
-    "vue-router": "^4.2.5"
+    "@chenfengyuan/vue-qrcode": "2.0.0",
+    "@element-plus/icons-vue": "2.3.1",
+    "@googlemaps/js-api-loader": "1.16.2",
+    "@iconify/vue": "4.1.1",
+    "@vueuse/core": "10.7.2",
+    "axios": "1.6.7",
+    "date-fns": "4.1.0",
+    "echarts": "5.4.3",
+    "element-plus": "2.5.6",
+    "html2canvas": "1.4.1",
+    "pinia": "2.1.7",
+    "vue": "3.3.0",
+    "vue-router": "4.2.5"
   },
   "devDependencies": {
-    "@types/google.maps": "^3.55.3",
-    "@types/node": "^20.11.19",
-    "@vitejs/plugin-vue": "^5.0.3",
-    "sass": "^1.71.1",
-    "sass-loader": "^14.1.1",
-    "typescript": "^5.3.3",
-    "vite": "^5.0.10",
-    "vue-tsc": "^1.8.27"
+    "@types/google.maps": "3.55.3",
+    "@types/node": "20.11.19",
+    "@vitejs/plugin-vue": "5.0.3",
+    "sass": "1.71.1",
+    "sass-loader": "14.1.1",
+    "typescript": "5.3.3",
+    "vite": "5.0.10",
+    "vue-tsc": "1.8.27"
   },
   "engines": {
     "node": "18.x"
