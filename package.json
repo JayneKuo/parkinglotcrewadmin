@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "vercel-build": "pnpm install --no-frozen-lockfile && vite build"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@chenfengyuan/vue-qrcode": "^2.0.0",
@@ -21,7 +20,7 @@
     "element-plus": "^2.5.6",
     "html2canvas": "^1.4.1",
     "pinia": "^2.1.7",
-    "vue": "^3.5.13",
+    "vue": "^3.3.0",
     "vue-router": "^4.2.5"
   },
   "devDependencies": {
