@@ -8,7 +8,8 @@ export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
+      '@': path.resolve(__dirname, './src'),
+      'vue': 'vue/dist/vue.esm-bundler.js'
     }
   },
   css: {
@@ -23,26 +24,12 @@ export default defineConfig({
     minify: 'esbuild',
     cssMinify: true,
     assetsDir: 'assets',
-    sourcemap: false,
+    sourcemap: true,
     rollupOptions: {
       output: {
         manualChunks: {
-          'element-plus': ['element-plus'],
-          'vue': ['vue', 'vue-router', 'pinia']
-        },
-        chunkFileNames: 'js/[name]-[hash].js',
-        entryFileNames: 'js/[name]-[hash].js',
-        assetFileNames: (assetInfo) => {
-          const info = assetInfo.name.split('.')
-          let extType = info[info.length - 1]
-          if (/\.(mp4|webm|ogg|mp3|wav|flac|aac)(\?.*)?$/i.test(assetInfo.name)) {
-            extType = 'media'
-          } else if (/\.(png|jpe?g|gif|svg|ico|webp)(\?.*)?$/i.test(assetInfo.name)) {
-            extType = 'img'
-          } else if (/\.(woff2?|eot|ttf|otf)(\?.*)?$/i.test(assetInfo.name)) {
-            extType = 'fonts'
-          }
-          return `${extType}/[name]-[hash][extname]`
+          'vue': ['vue', 'vue-router', 'pinia'],
+          'element-plus': ['element-plus', '@element-plus/icons-vue']
         }
       }
     }
