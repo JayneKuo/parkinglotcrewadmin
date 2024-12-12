@@ -154,6 +154,14 @@
         <el-form-item label="Phone" prop="phone">
           <el-input v-model="form.phone" />
         </el-form-item>
+        <el-form-item label="Password" prop="password" v-if="dialogType === 'add'">
+          <el-input 
+            v-model="form.password" 
+            type="password" 
+            show-password
+            placeholder="Set initial password"
+          />
+        </el-form-item>
         <el-form-item label="Email" prop="email">
           <el-input v-model="form.email" />
         </el-form-item>
@@ -176,25 +184,19 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="Work Shift" prop="workShift">
-          <el-select v-model="form.workShift">
-            <el-option label="Morning" value="morning" />
-            <el-option label="Afternoon" value="afternoon" />
-            <el-option label="Night" value="night" />
+        <el-form-item label="Status" prop="status">
+          <el-select v-model="form.status" placeholder="Select status">
+            <el-option label="Active" value="active" />
+            <el-option label="Inactive" value="inactive" />
           </el-select>
         </el-form-item>
         <el-form-item label="Join Date" prop="joinDate">
-          <el-date-picker v-model="form.joinDate" type="date" />
-        </el-form-item>
-        <el-divider>Emergency Contact</el-divider>
-        <el-form-item label="Contact Name" prop="emergencyContact.name">
-          <el-input v-model="form.emergencyContact.name" />
-        </el-form-item>
-        <el-form-item label="Contact Phone" prop="emergencyContact.phone">
-          <el-input v-model="form.emergencyContact.phone" />
-        </el-form-item>
-        <el-form-item label="Relationship" prop="emergencyContact.relationship">
-          <el-input v-model="form.emergencyContact.relationship" />
+          <el-date-picker
+            v-model="form.joinDate"
+            type="date"
+            placeholder="Select date"
+            value-format="YYYY-MM-DD"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -281,13 +283,14 @@ const form = reactive({
   email: '',
   role: '',
   parkingLotId: '',
-  workShift: '',
+  status: '',
   joinDate: '',
   emergencyContact: {
     name: '',
     phone: '',
     relationship: ''
-  }
+  },
+  password: ''
 })
 
 // 表单验证规则
@@ -303,14 +306,18 @@ const rules: FormRules = {
   ],
   role: [{ required: true, message: 'Please select role', trigger: 'change' }],
   parkingLotId: [{ required: true, message: 'Please select parking lot', trigger: 'change' }],
-  workShift: [{ required: true, message: 'Please select work shift', trigger: 'change' }],
+  status: [{ required: true, message: 'Please select status', trigger: 'change' }],
   joinDate: [{ required: true, message: 'Please select join date', trigger: 'change' }],
   'emergencyContact.name': [{ required: true, message: 'Please enter contact name', trigger: 'blur' }],
   'emergencyContact.phone': [
     { required: true, message: 'Please enter contact phone', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: 'Invalid phone number', trigger: 'blur' }
   ],
-  'emergencyContact.relationship': [{ required: true, message: 'Please enter relationship', trigger: 'blur' }]
+  'emergencyContact.relationship': [{ required: true, message: 'Please enter relationship', trigger: 'blur' }],
+  password: [
+    { required: true, message: 'Please enter password', trigger: 'blur' },
+    { min: 6, message: 'Password must be at least 6 characters', trigger: 'blur' }
+  ]
 }
 
 // 格式化方法
@@ -402,13 +409,14 @@ const handleAdd = () => {
     email: '',
     role: '',
     parkingLotId: '',
-    workShift: '',
+    status: '',
     joinDate: '',
     emergencyContact: {
       name: '',
       phone: '',
       relationship: ''
-    }
+    },
+    password: ''
   })
   dialogVisible.value = true
 }
@@ -421,13 +429,14 @@ const handleEdit = (row: Staff) => {
     email: row.email,
     role: row.role,
     parkingLotId: row.parkingLotId,
-    workShift: row.workShift,
+    status: row.status,
     joinDate: row.joinDate,
     emergencyContact: row.emergencyContact || {
       name: '',
       phone: '',
       relationship: ''
-    }
+    },
+    password: ''
   })
   dialogVisible.value = true
 }

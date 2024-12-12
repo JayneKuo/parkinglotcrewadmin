@@ -10,15 +10,9 @@ export interface Staff {
   parkingLotName?: string
   joinDate: string
   status: StaffStatus
-  workShift?: 'morning' | 'afternoon' | 'night'
   permissions?: string[]
   avatar?: string
   email?: string
-  emergencyContact?: {
-    name: string
-    phone: string
-    relationship: string
-  }
   lastLoginTime?: string
   statusHistory?: {
     status: StaffStatus
@@ -35,4 +29,5 @@ export interface StaffForm {
   parkingLotId: string
   joinDate: string
   status: 'active' | 'inactive'
+  password: string
 }
