@@ -15,6 +15,20 @@
             </template>
           </el-input>
         </el-form-item>
+
+        <el-form-item>
+          <el-input
+            v-model="searchForm.vehiclePlate"
+            placeholder="Vehicle Plate"
+            clearable
+            style="width: 150px"
+          >
+            <template #prefix>
+              <span class="search-label">Plate</span>
+            </template>
+          </el-input>
+        </el-form-item>
+
         <el-form-item>
           <el-select 
             v-model="searchForm.status" 
@@ -36,6 +50,7 @@
             </el-option>
           </el-select>
         </el-form-item>
+
         <el-form-item>
           <el-date-picker
             v-model="searchForm.date"
@@ -48,6 +63,7 @@
             </template>
           </el-date-picker>
         </el-form-item>
+
         <el-form-item>
           <el-button 
             type="primary" 
@@ -429,7 +445,7 @@
           <el-select 
             v-model="assignDockForm.selectedArea"
             placeholder="Select area"
-            @change="assignDockForm.selectedDocks = []"
+            @change="handleAreaChange"
           >
             <el-option
               v-for="area in areas"
@@ -454,7 +470,12 @@
               :key="dock.id"
               :label="dock.name"
               :value="dock.id"
-            />
+            >
+              <span>{{ dock.name }}</span>
+              <span class="dock-status" :class="dock.status">
+                {{ dock.status }}
+              </span>
+            </el-option>
           </el-select>
         </el-form-item>
 
@@ -560,6 +581,92 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- Payment Dialog -->
+    <el-dialog
+      v-model="paymentDialogVisible"
+      title="Process Payment"
+      width="500px"
+      class="payment-dialog"
+    >
+      <el-form :model="paymentForm" label-position="top">
+        <div class="payment-amount">
+          <div class="amount-label">Amount Due</div>
+          <div class="amount-value">${{ paymentForm.amount }}</div>
+        </div>
+
+        <el-form-item label="Payment Method">
+          <el-radio-group v-model="paymentForm.method">
+            <el-radio label="credit_card">
+              <el-icon><CreditCard /></el-icon>
+              Credit Card
+            </el-radio>
+            <el-radio label="cash">
+              <el-icon><Money /></el-icon>
+              Cash
+            </el-radio>
+            <el-radio label="bank_transfer">
+              <el-icon><Money /></el-icon>
+              Bank Transfer
+            </el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <template v-if="paymentForm.method === 'credit_card'">
+          <el-form-item label="Card Number">
+            <el-input
+              v-model="paymentForm.cardNumber"
+              placeholder="XXXX XXXX XXXX XXXX"
+              maxlength="19"
+            >
+              <template #prefix>
+                <el-icon><CreditCard /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="Expiry Date">
+                <el-input
+                  v-model="paymentForm.expiryDate"
+                  placeholder="MM/YY"
+                  maxlength="5"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="CVV">
+                <el-input
+                  v-model="paymentForm.cvv"
+                  placeholder="XXX"
+                  maxlength="3"
+                  show-password
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </template>
+
+        <el-form-item label="Notes">
+          <el-input
+            v-model="paymentForm.notes"
+            type="textarea"
+            :rows="3"
+            placeholder="Add payment notes"
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="paymentDialogVisible = false">Cancel</el-button>
+          <el-button type="primary" @click="handleProcessPayment">
+            Process Payment
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -585,6 +692,7 @@ const router = useRouter()
 // Search Form
 const searchForm = ref({
   keyword: '',
+  vehiclePlate: '',
   status: '',
   date: null as string | null
 })
@@ -975,19 +1083,59 @@ const handleUpdateProgress = async () => {
 }
 
 // Search
-const handleSearch = () => {
-  console.log('Search form:', searchForm.value)
-  loadData()
+const handleSearch = async () => {
+  try {
+    // 重置分页到第一页
+    currentPage.value = 1
+    
+    // TODO: 调用API进行搜索
+    // const params = {
+    //   keyword: searchForm.value.keyword,
+    //   vehiclePlate: searchForm.value.vehiclePlate,
+    //   status: searchForm.value.status,
+    //   date: searchForm.value.date,
+    //   page: currentPage.value,
+    //   pageSize: pageSize.value
+    // }
+    // const result = await searchAppointments(params)
+    
+    // 模拟搜索结果
+    const filteredList = appointmentList.value.filter(item => {
+      const matchKeyword = !searchForm.value.keyword || 
+        item.appointmentId.toLowerCase().includes(searchForm.value.keyword.toLowerCase()) ||
+        item.driverName.toLowerCase().includes(searchForm.value.keyword.toLowerCase()) ||
+        item.carrier.toLowerCase().includes(searchForm.value.keyword.toLowerCase())
+      
+      const matchPlate = !searchForm.value.vehiclePlate ||
+        item.vehiclePlate.toLowerCase().includes(searchForm.value.vehiclePlate.toLowerCase())
+      
+      const matchStatus = !searchForm.value.status || 
+        item.status === searchForm.value.status
+      
+      const matchDate = !searchForm.value.date || 
+        item.startDate === searchForm.value.date
+      
+      return matchKeyword && matchPlate && matchStatus && matchDate
+    })
+    
+    total.value = filteredList.length
+    // 更新列表数据
+    appointmentList.value = filteredList
+  } catch (error) {
+    ElMessage.error('Search failed')
+    console.error(error)
+  }
 }
 
 // Reset Search
 const handleReset = () => {
   searchForm.value = {
     keyword: '',
+    vehiclePlate: '',
     status: '',
     date: null
   }
-  handleSearch()
+  handleSearch() // 重置后自动搜索
 }
 
 // Add Appointment
@@ -1060,6 +1208,18 @@ const handleCommand = async (command: keyof typeof STATUS_ACTIONS[DockAppointmen
       case 'monitor-progress':
         handleMonitorProgress(row)
         break
+      case 'check-in':
+        await handleCheckIn(row)
+        break
+      case 'assign-dock':
+        await handleAssignDock(row)
+        break
+      case 'check-out':
+        await handleCheckOut(row)
+        break
+      case 'modify':
+        handleEdit(row)
+        break
       // ... other cases ...
       default:
         console.log('Command not implemented:', command)
@@ -1118,8 +1278,13 @@ const confirmAssignDock = async () => {
       return
     }
 
+    if (assignDockForm.value.selectedDocks.length > assignDockForm.value.parkingSpots) {
+      ElMessage.warning(`Can only select up to ${assignDockForm.value.parkingSpots} docks`)
+      return
+    }
+
     await ElMessageBox.confirm(
-      `Are you sure to assign ${assignDockForm.value.selectedDocks.join(', ')} to this appointment?`,
+      `Are you sure to assign dock ${assignDockForm.value.selectedDocks.join(', ')} to this appointment?`,
       'Confirm Assignment',
       {
         confirmButtonText: 'Confirm',
@@ -1253,6 +1418,123 @@ const handleCompleteLoadingFromMonitor = async () => {
     monitorProgressDialogVisible.value = false
   }
 }
+
+// 添加handleCheckIn函数
+const handleCheckIn = async (row: DockAppointment) => {
+  try {
+    await ElMessageBox.confirm(
+      `Are you sure to check in appointment ${row.appointmentId}?`,
+      'Check In Confirmation',
+      {
+        confirmButtonText: 'Check In',
+        cancelButtonText: 'Cancel',
+        type: 'info'
+      }
+    )
+
+    // TODO: 调用后端API进行check in操作
+    // await checkInAppointment(row.id)
+    
+    ElMessage.success('Check in successful')
+    await loadData() // 刷新列表数据
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('Failed to check in')
+      console.error(error)
+    }
+  }
+}
+
+// 添加区域选择变更处理函数
+const handleAreaChange = (areaId: string) => {
+  assignDockForm.value.selectedDocks = [] // 清空已选DOCK
+  // 可以在这里根据区域加载该区域的可用DOCK列表
+}
+
+// 添加支付弹窗的ref
+const paymentDialogVisible = ref(false)
+const paymentForm = ref({
+  appointmentId: '',
+  amount: 0,
+  method: 'credit_card', // credit_card, cash, bank_transfer
+  cardNumber: '',
+  expiryDate: '',
+  cvv: '',
+  notes: ''
+})
+
+// 修改handleCheckOut函数
+const handleCheckOut = async (row: DockAppointment) => {
+  try {
+    // 检查支付状态
+    if (row.paymentStatus !== 'paid') {
+      // 初始化支付表单
+      paymentForm.value = {
+        appointmentId: row.appointmentId,
+        amount: row.paymentAmount || 0,
+        method: 'credit_card',
+        cardNumber: '',
+        expiryDate: '',
+        cvv: '',
+        notes: ''
+      }
+      // 显示支付弹窗
+      paymentDialogVisible.value = true
+      return
+    }
+
+    // 已支付情况下，执行check out操作
+    await ElMessageBox.confirm(
+      `Are you sure to check out appointment ${row.appointmentId}?`,
+      'Check Out Confirmation',
+      {
+        confirmButtonText: 'Check Out',
+        cancelButtonText: 'Cancel',
+        type: 'success'
+      }
+    )
+
+    // TODO: 调用后端API进行check out操作
+    // await checkOutAppointment({
+    //   appointmentId: row.id,
+    //   action: 'check-out',
+    //   status: DockAppointmentStatus.COMPLETED
+    // })
+    
+    ElMessage.success('Check out successful. Door opened.')
+    await loadData()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('Failed to check out')
+      console.error(error)
+    }
+  }
+}
+
+// 添加处理支付的函数
+const handleProcessPayment = async () => {
+  try {
+    // TODO: 调用支付API
+    // await processPayment({
+    //   appointmentId: paymentForm.value.appointmentId,
+    //   amount: paymentForm.value.amount,
+    //   method: paymentForm.value.method,
+    //   cardInfo: {
+    //     number: paymentForm.value.cardNumber,
+    //     expiryDate: paymentForm.value.expiryDate,
+    //     cvv: paymentForm.value.cvv
+    //   },
+    //   notes: paymentForm.value.notes
+    // })
+
+    ElMessage.success('Payment processed successfully')
+    paymentDialogVisible.value = false
+    await loadData() // 刷新列表以更新支付状态
+  } catch (error) {
+    ElMessage.error('Payment failed')
+    console.error(error)
+  }
+}
 </script>
 
 <style scoped lang="scss">
@@ -1264,9 +1546,14 @@ const handleCompleteLoadingFromMonitor = async () => {
   }
 
   .search-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    
     .search-label {
       color: #606266;
       margin-right: 8px;
+      font-size: 13px;
     }
 
     :deep(.el-input__wrapper),
@@ -1285,7 +1572,13 @@ const handleCompleteLoadingFromMonitor = async () => {
       }
     }
 
+    .el-form-item {
+      margin-bottom: 0;
+      margin-right: 0;
+    }
+
     .search-button {
+      min-width: 100px;
       background-color: #409EFF;
       border-color: #409EFF;
       padding: 8px 20px;
@@ -1294,11 +1587,15 @@ const handleCompleteLoadingFromMonitor = async () => {
         background-color: #66b1ff;
         border-color: #66b1ff;
       }
+
+      .el-icon {
+        margin-right: 4px;
+      }
     }
 
     .reset-button {
+      min-width: 80px;
       padding: 8px 20px;
-      margin-left: 8px;
       border: 1px solid #DCDFE6;
       color: #606266;
       
@@ -1306,12 +1603,6 @@ const handleCompleteLoadingFromMonitor = async () => {
         color: #409EFF;
         border-color: #c6e2ff;
         background-color: #ecf5ff;
-      }
-    }
-
-    .el-button {
-      .el-icon {
-        margin-right: 4px;
       }
     }
   }
@@ -1452,91 +1743,35 @@ const handleCompleteLoadingFromMonitor = async () => {
     }
   }
 
-  .current-dock-tag {
-    margin-right: 8px;
-    margin-bottom: 8px;
-  }
-}
+  .current-dock-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 
-.current-dock-info {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-
-  .dock-item {
-    .current-dock-tag {
-      display: inline-flex;
-      align-items: center;
-      padding: 6px 10px;
-      font-size: 13px;
-    }
-  }
-}
-
-.area-tag {
-  margin: 0 4px;
-  padding: 0 6px;
-  height: 20px;
-  line-height: 18px;
-}
-
-.el-dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  
-  .el-icon {
-    margin: 0;
-  }
-}
-
-.monitor-progress-dialog {
-  .progress-info {
-    .info-item {
-      margin-bottom: 16px;
-      
-      .label {
-        font-size: 13px;
-        color: #666;
-        margin-bottom: 4px;
-      }
-      
-      .value {
-        font-size: 15px;
-        font-weight: 500;
-        
-        &.highlight {
-          color: #409EFF;
-          font-size: 18px;
-        }
-      }
-    }
-
-    .progress-section {
-      margin: 24px 0;
-      
-      .progress-header {
-        display: flex;
-        justify-content: space-between;
+    .dock-item {
+      .current-dock-tag {
+        display: inline-flex;
         align-items: center;
-        margin-bottom: 12px;
-        font-weight: 500;
-        
-        .percentage {
-          color: #409EFF;
-          font-size: 16px;
-        }
+        padding: 6px 10px;
+        font-size: 13px;
       }
     }
+  }
 
-    .notes-section {
-      margin-top: 24px;
-      
-      .section-title {
-        font-weight: 500;
-        margin-bottom: 12px;
-      }
+  .dock-status {
+    float: right;
+    font-size: 12px;
+    
+    &.available {
+      color: var(--el-color-success);
+    }
+    
+    &.occupied {
+      color: var(--el-color-danger);
+    }
+    
+    &.maintenance {
+      color: var(--el-color-warning);
     }
   }
 }
@@ -1594,6 +1829,115 @@ const handleCompleteLoadingFromMonitor = async () => {
 
   span {
     flex: 1;
+  }
+}
+
+:deep(.payment-dialog-content) {
+  padding: 20px 0;
+
+  .amount-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding: 16px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+
+    .label {
+      font-size: 14px;
+      color: #606266;
+    }
+
+    .amount {
+      font-size: 24px;
+      font-weight: 600;
+      color: #409EFF;
+    }
+  }
+
+  .payment-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #E6A23C;
+    
+    .el-icon-warning {
+      font-size: 16px;
+    }
+  }
+}
+
+.el-message-box {
+  :deep(.el-message-box__message) {
+    padding: 0;
+  }
+}
+
+.payment-dialog {
+  :deep(.el-dialog__body) {
+    padding: 20px 30px;
+  }
+
+  .payment-amount {
+    text-align: center;
+    margin-bottom: 24px;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+
+    .amount-label {
+      font-size: 14px;
+      color: #606266;
+      margin-bottom: 8px;
+    }
+
+    .amount-value {
+      font-size: 32px;
+      font-weight: 600;
+      color: #409EFF;
+    }
+  }
+
+  :deep(.el-radio-group) {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    .el-radio {
+      margin-right: 0;
+      padding: 12px 16px;
+      border: 1px solid #DCDFE6;
+      border-radius: 4px;
+      
+      &.is-checked {
+        background-color: #ecf5ff;
+        border-color: #409EFF;
+      }
+
+      .el-icon {
+        margin-right: 8px;
+        font-size: 16px;
+      }
+    }
+  }
+
+  :deep(.el-input__wrapper) {
+    box-shadow: none;
+    border: 1px solid #DCDFE6;
+    
+    &:hover {
+      border-color: #C0C4CC;
+    }
+    
+    &.is-focus {
+      border-color: #409EFF;
+    }
+  }
+
+  .el-icon {
+    color: #909399;
   }
 }
 </style> 

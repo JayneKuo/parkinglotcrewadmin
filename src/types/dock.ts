@@ -57,8 +57,8 @@ export const STATUS_ACTIONS = {
   ],
   [DockAppointmentStatus.SCHEDULED]: [
     { action: 'view', label: 'View Details', icon: 'View' },
-    { action: 'modify', label: 'Modify Appointment', icon: 'Edit' },
-    { action: 'cancel', label: 'Cancel Appointment', icon: 'Close' }
+    { action: 'check-in', label: 'Check In', icon: 'Timer' },
+    { action: 'cancel', label: 'Cancel', icon: 'Close' }
   ],
   [DockAppointmentStatus.ARRIVED]: [
     { action: 'view', label: 'View Details', icon: 'View' },
@@ -72,8 +72,9 @@ export const STATUS_ACTIONS = {
   ],
   [DockAppointmentStatus.LOADED]: [
     { action: 'view', label: 'View Details', icon: 'View' },
-    { action: 'send-reminder', label: 'Send Payment Reminder', icon: 'Message' },
-    { action: 'mark-paid', label: 'Mark as Paid', icon: 'Check' }
+    { action: 'check-out', label: 'Check Out', icon: 'CircleCheck' },
+    { action: 'mark-paid', label: 'Mark as Paid', icon: 'Check' },
+    { action: 'send-reminder', label: 'Send Payment Reminder', icon: 'Message' }
   ],
   [DockAppointmentStatus.COMPLETED]: [
     { action: 'view', label: 'View Details', icon: 'View' }
