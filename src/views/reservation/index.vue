@@ -96,9 +96,21 @@
         <el-table-column prop="orderNo" label="Order No." width="160" fixed />
         <el-table-column prop="customerName" label="Customer" width="120" />
         <el-table-column prop="phone" label="Phone" width="120" />
-        <el-table-column prop="plateNo" label="Plate No." width="120">
+        <el-table-column prop="plateNo" label="Car Info" min-width="120">
           <template #default="{ row }">
-            <el-tag size="small">{{ row.plateNo }}</el-tag>
+            <el-tooltip
+              v-if="row.plateNos?.length > 1"
+              :content="row.plateNos.join(', ')"
+              placement="top"
+            >
+              <span class="multiple-plates">
+                {{ row.plateNos[0] }}
+                <el-tag size="small" type="info" class="plate-count">
+                  +{{ row.plateNos.length - 1 }}
+                </el-tag>
+              </span>
+            </el-tooltip>
+            <span v-else>{{ row.plateNos?.[0] || row.plateNo }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="parkingLot" label="Parking Lot" min-width="150" show-overflow-tooltip />
@@ -264,42 +276,131 @@
     <!-- Payment Method Dialog -->
     <el-dialog
       v-model="paymentDialogVisible"
-      title="Select Payment Method"
+      title="Process Payment"
       width="600px"
       align-center
       class="payment-dialog"
     >
-      <div class="payment-methods">
-        <div 
-          v-for="method in paymentMethods" 
-          :key="method.value"
-          class="payment-method-item"
-          :class="{ active: selectedPaymentMethod === method.value }"
-          @click="selectedPaymentMethod = method.value"
-        >
-          <div class="method-icon">
-            <el-icon><component :is="method.icon" /></el-icon>
+      <!-- 订单信息 -->
+      <div class="order-summary" v-if="currentReservation">
+        <h3 class="section-title">Order Summary</h3>
+        <div class="order-info">
+          <div class="info-row">
+            <div class="info-item">
+              <span class="label">Order No.</span>
+              <span class="value">{{ currentReservation.orderNo }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">Customer</span>
+              <span class="value">{{ currentReservation.customerName }}</span>
+            </div>
           </div>
-          <div class="method-info">
-            <div class="method-name">{{ method.label }}</div>
-            <div class="method-desc">{{ method.description }}</div>
+          <div class="info-row">
+            <div class="info-item">
+              <span class="label">Car Info</span>
+              <span class="value">{{ currentReservation.plateNo }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">Duration</span>
+              <span class="value">{{ formatDuration(currentReservation.duration) }}</span>
+            </div>
           </div>
-          <div class="method-check">
-            <el-icon v-show="selectedPaymentMethod === method.value">
-              <Check />
-            </el-icon>
+        </div>
+
+        <div class="payment-details">
+          <div class="summary-item">
+            <span class="label">Service Fee</span>
+            <span class="value">${{ currentReservation.serviceFee.toFixed(2) }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Tax</span>
+            <span class="value">${{ currentReservation.tax.toFixed(2) }}</span>
+          </div>
+          <div class="summary-item total">
+            <span class="label">Total Amount</span>
+            <span class="value amount">${{ currentReservation.amount.toFixed(2) }}</span>
           </div>
         </div>
       </div>
 
-      <div class="payment-summary" v-if="currentReservation">
-        <div class="summary-item">
-          <span class="label">Order No:</span>
-          <span class="value">{{ currentReservation.orderNo }}</span>
+      <!-- 支付方式选择 -->
+      <div class="payment-section">
+        <h3 class="section-title">Select Payment Method</h3>
+        <div class="payment-methods">
+          <div 
+            v-for="method in paymentMethods" 
+            :key="method.value"
+            class="payment-method-item"
+            :class="{ active: paymentState.selectedMethod === method.value }"
+            @click="paymentState.selectedMethod = method.value"
+          >
+            <div class="method-icon">
+              <el-icon><component :is="method.icon" /></el-icon>
+            </div>
+            <div class="method-info">
+              <div class="method-name">{{ method.label }}</div>
+              <div class="method-desc">{{ method.description }}</div>
+            </div>
+            <div class="method-check">
+              <el-icon v-show="paymentState.selectedMethod === method.value">
+                <Check />
+              </el-icon>
+            </div>
+          </div>
         </div>
-        <div class="summary-item">
-          <span class="label">Amount:</span>
-          <span class="value amount">${{ currentReservation.amount.toFixed(2) }}</span>
+
+        <!-- 支付方式相关内容 -->
+        <div class="payment-content" v-if="paymentState.selectedMethod">
+          <!-- 二维码支付 -->
+          <div v-if="paymentState.selectedMethod === 'qr'" class="qr-payment">
+            <div class="qr-code" v-if="paymentState.qrCodeUrl">
+              <img :src="paymentState.qrCodeUrl" alt="Payment QR Code">
+            </div>
+            <div class="qr-hint">Please scan the QR code to complete payment</div>
+          </div>
+
+          <!-- 现金支付 -->
+          <div v-if="paymentState.selectedMethod === 'cash'" class="cash-payment">
+            <el-form label-width="120px">
+              <el-form-item label="Amount Due">
+                <span class="amount">${{ currentReservation?.amount.toFixed(2) }}</span>
+              </el-form-item>
+              <el-form-item label="Received">
+                <el-input-number 
+                  v-model="paymentState.cashReceived"
+                  :min="currentReservation?.amount || 0"
+                  :precision="2"
+                  :step="1"
+                />
+              </el-form-item>
+              <el-form-item label="Change">
+                <span class="amount">${{ changeAmount.toFixed(2) }}</span>
+              </el-form-item>
+            </el-form>
+          </div>
+
+          <!-- 短信支付 -->
+          <div v-if="paymentState.selectedMethod === 'sms'" class="sms-payment">
+            <el-form label-width="120px">
+              <el-form-item label="Phone Number">
+                <el-input 
+                  v-model="paymentState.phoneNumber"
+                  placeholder="Enter phone number"
+                />
+              </el-form-item>
+            </el-form>
+            <div class="sms-hint">Payment link will be sent to this phone number, please confirm</div>
+          </div>
+
+          <!-- 无需支付 -->
+          <div v-if="paymentState.selectedMethod === 'none'" class="no-payment">
+            <el-alert
+              title="Confirm to mark as no payment required?"
+              type="warning"
+              :closable="false"
+              show-icon
+            />
+          </div>
         </div>
       </div>
 
@@ -308,8 +409,8 @@
           <el-button @click="paymentDialogVisible = false">Cancel</el-button>
           <el-button 
             type="primary" 
-            :loading="loading"
-            :disabled="!selectedPaymentMethod"
+            :loading="paymentState.loading"
+            :disabled="!paymentState.canConfirm"
             @click="handlePaymentMethodSelect"
           >
             Confirm Payment
@@ -323,11 +424,221 @@
       v-model="createDialogVisible"
       @created="handleReservationCreated"
     />
+
+    <!-- Check-in Dialog -->
+    <el-dialog
+      v-model="checkInDialogVisible"
+      title="Check-in Confirmation"
+      width="500px"
+      align-center
+      class="check-in-dialog"
+    >
+      <div class="order-info" v-if="currentReservation">
+        <div class="info-row">
+          <span class="label">Order No.</span>
+          <span class="value">{{ currentReservation.orderNo }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Customer</span>
+          <span class="value">{{ currentReservation.customerName }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Space</span>
+          <span class="value">
+            <el-tag type="info" v-if="currentReservation.zoneName">
+              Zone {{ currentReservation.zoneName }}
+            </el-tag>
+            <el-tag 
+              v-if="currentReservation.spaceNo" 
+              :type="getSpaceTypeTag(currentReservation.spaceType)"
+              class="ml-2"
+            >
+              Space {{ currentReservation.spaceNo }}
+            </el-tag>
+          </span>
+        </div>
+        <div class="info-row">
+          <span class="label">Time</span>
+          <span class="value time-info">
+            <div>
+              <el-icon><Calendar /></el-icon>
+              Start: {{ formatDateTime(currentReservation.startTime) }}
+            </div>
+            <div>
+              <el-icon><Calendar /></el-icon>
+              End: {{ formatDateTime(currentReservation.endTime) }}
+            </div>
+          </span>
+        </div>
+      </div>
+
+      <div class="vehicle-info">
+        <h3 class="section-title">Vehicle Information</h3>
+        <el-tag 
+          size="large"
+          :type="getSpaceTypeTag(currentReservation?.spaceType)"
+          class="plate-tag"
+        >
+          {{ currentReservation?.plateNo }}
+        </el-tag>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="checkInDialogVisible = false">Cancel</el-button>
+          <el-button
+            type="primary"
+            :loading="loading"
+            @click="handleCheckInConfirm"
+          >
+            Confirm Check-in
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- Check-out Dialog -->
+    <el-dialog
+      v-model="checkOutDialogVisible"
+      :title="isOverdue ? 'Overdue Check-out' : 'Check-out Confirmation'"
+      width="500px"
+      align-center
+      class="check-out-dialog"
+    >
+      <div class="order-info" v-if="currentReservation">
+        <!-- 基本信息 -->
+        <div class="info-row">
+          <span class="label">Order No.</span>
+          <span class="value">{{ currentReservation.orderNo }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Customer</span>
+          <span class="value">{{ currentReservation.customerName }}</span>
+        </div>
+        
+        <!-- 车辆信息 -->
+        <div class="vehicle-info">
+          <h3 class="section-title">Vehicle Information</h3>
+          <div class="plate-selection" v-if="currentReservation.plateNos?.length > 1">
+            <div class="plate-list">
+              <div
+                v-for="plateNo in currentReservation.plateNos"
+                :key="plateNo"
+                class="plate-item"
+                :class="{ active: checkOutState.selectedPlateNo === plateNo }"
+                @click="checkOutState.selectedPlateNo = plateNo"
+              >
+                <el-icon v-if="checkOutState.selectedPlateNo === plateNo"><Check /></el-icon>
+                <span class="plate-no">{{ plateNo }}</span>
+              </div>
+            </div>
+          </div>
+          <div v-else class="single-plate">
+            <el-tag size="large" :type="getSpaceTypeTag(currentReservation.spaceType)">
+              {{ currentReservation.plateNo }}
+            </el-tag>
+          </div>
+        </div>
+
+        <!-- 车位信息 -->
+        <div class="info-row">
+          <span class="label">Space</span>
+          <span class="value">
+            <el-tag type="info" v-if="currentReservation.zoneName">
+              Zone {{ currentReservation.zoneName }}
+            </el-tag>
+            <el-tag 
+              v-if="currentReservation.spaceNo" 
+              :type="getSpaceTypeTag(currentReservation.spaceType)"
+              class="ml-2"
+            >
+              Space {{ currentReservation.spaceNo }}
+            </el-tag>
+          </span>
+        </div>
+
+        <!-- 时间信息 -->
+        <div class="info-row">
+          <span class="label">Time</span>
+          <span class="value time-info">
+            <div>
+              <el-icon><Calendar /></el-icon>
+              Start: {{ formatDateTime(currentReservation.startTime) }}
+            </div>
+            <div>
+              <el-icon><Calendar /></el-icon>
+              End: {{ formatDateTime(currentReservation.endTime) }}
+            </div>
+          </span>
+        </div>
+      </div>
+
+      <!-- 超时费用信息 -->
+      <div v-if="isOverdue" class="overdue-info">
+        <h3 class="section-title">Overdue Information</h3>
+        <div class="fee-details">
+          <div class="fee-item">
+            <span class="label">Overdue Duration</span>
+            <span class="value">{{ formatDuration(currentReservation.overdueMinutes || 0) }}</span>
+          </div>
+          <div class="fee-item">
+            <span class="label">Rate</span>
+            <span class="value">${{ overdueRate }}/hour</span>
+          </div>
+          <div class="fee-item total">
+            <span class="label">Overdue Fee</span>
+            <span class="value amount">${{ calculateOverdueFee().toFixed(2) }}</span>
+          </div>
+        </div>
+
+        <!-- 支付方式选择 -->
+        <div class="payment-section">
+          <h3 class="section-title">Select Payment Method</h3>
+          <div class="payment-methods">
+            <div 
+              v-for="method in paymentMethods" 
+              :key="method.value"
+              class="payment-method-item"
+              :class="{ active: checkOutState.selectedMethod === method.value }"
+              @click="checkOutState.selectedMethod = method.value"
+            >
+              <div class="method-icon">
+                <el-icon><component :is="method.icon" /></el-icon>
+              </div>
+              <div class="method-info">
+                <div class="method-name">{{ method.label }}</div>
+                <div class="method-desc">{{ method.description }}</div>
+              </div>
+              <div class="method-check">
+                <el-icon v-show="checkOutState.selectedMethod === method.value">
+                  <Check />
+                </el-icon>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="checkOutDialogVisible = false">Cancel</el-button>
+          <el-button
+            type="primary"
+            :loading="loading"
+            :disabled="(currentReservation?.plateNos?.length > 1 && !checkOutState.selectedPlateNo) || 
+              (isOverdue && !checkOutState.selectedMethod)"
+            @click="handleCheckOutConfirm"
+          >
+            {{ isOverdue ? 'Pay & Check-out' : 'Confirm Check-out' }}
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Download, Calendar, Timer, Check, Close, RefreshRight, Van, Money, View, ArrowDown, More } from '@element-plus/icons-vue'
@@ -336,12 +647,21 @@ import { ReservationStatus } from '@/types/reservation'
 import RefundDialog from '@/components/reservation/RefundDialog.vue'
 import { formatDateTime, formatDuration } from '@/utils/format'
 import CreateReservationDialog from '@/components/reservation/CreateReservationDialog.vue'
+import type { ReservationType } from '@/types/reservation'
+
+interface ReservationDetail extends ReservationType {
+  serviceFee: number
+  tax: number
+  amount: number
+  duration: number
+}
 
 const router = useRouter()
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const currentReservation = ref<ReservationDetail | null>(null)
 
 // Status map
 const statusMap: Record<ReservationStatus, string> = {
@@ -619,7 +939,7 @@ const statusOptions = [
 // Utility functions
 const getStatusType = (status: ReservationStatus): string => {
   const types: Record<ReservationStatus, string> = {
-    [ReservationStatus.Pending]: 'warning', // 黄色警��
+    [ReservationStatus.Pending]: 'warning', // 黄色警
     [ReservationStatus.AwaitingUse]: 'success', // 绿色正常
     [ReservationStatus.InUse]: 'primary', // 蓝色进行中
     [ReservationStatus.Used]: 'success', // 绿色完成
@@ -699,62 +1019,129 @@ const handleView = (row: Reservation) => {
 
 // 添加支付方式选择弹窗
 const paymentDialogVisible = ref(false)
-const currentReservation = ref<Reservation | null>(null)
 const selectedPaymentMethod = ref('')
 
 // 支付方式选项
 const paymentMethods = [
-  { label: 'QR Code Payment', value: 'qr_code', icon: 'QrCode' },
-  { label: 'Cash', value: 'cash', icon: 'Money' },
-  { label: 'Tap to Pay', value: 'tap', icon: 'CreditCard' },
-  { label: 'Payment Link (SMS)', value: 'sms', icon: 'Message' },
-  { label: 'No Payment Required', value: 'none', icon: 'Check' }
+  {
+    value: 'qr',
+    label: 'QR Code Payment',
+    icon: 'QrCode',
+    description: 'Scan QR code to pay with mobile phone'
+  },
+  {
+    value: 'cash',
+    label: 'Cash Payment',
+    icon: 'Money',
+    description: 'Pay with cash'
+  },
+  {
+    value: 'sms',
+    label: 'SMS Link Payment',
+    icon: 'Message',
+    description: 'Receive payment link via SMS'
+  },
+  {
+    value: 'none',
+    label: 'No Payment Required',
+    icon: 'CircleCheck',
+    description: 'Mark as no payment required'
+  }
 ]
 
-// 处理确认支付
-const handleConfirmPayment = async (row: Reservation) => {
-  currentReservation.value = row
-  paymentDialogVisible.value = true
-}
+// 支付相关状态
+const paymentState = reactive({
+  selectedMethod: '',
+  cashReceived: 0,
+  phoneNumber: '',
+  qrCodeUrl: '',
+  loading: false,
+  canConfirm: false
+})
+
+// 监听支付方式变化
+watch(() => paymentState.selectedMethod, (method) => {
+  paymentState.canConfirm = false
+  if (method === 'cash') {
+    paymentState.canConfirm = paymentState.cashReceived >= currentReservation.value?.amount
+  } else if (method === 'sms') {
+    paymentState.canConfirm = !!paymentState.phoneNumber
+  } else if (method === 'none') {
+    paymentState.canConfirm = true
+  }
+})
+
+// 计算找零金额
+const changeAmount = computed(() => {
+  if (!currentReservation.value || !paymentState.cashReceived) return 0
+  return paymentState.cashReceived - currentReservation.value.amount
+})
 
 // 处理支付方式选择
 const handlePaymentMethodSelect = async () => {
-  if (!selectedPaymentMethod.value) {
-    ElMessage.warning('Please select payment method')
-    return
-  }
-
   try {
-    await ElMessageBox.confirm(
-      `Confirm to process payment via ${getPaymentMethodLabel(selectedPaymentMethod.value)}?`,
-      'Confirm Payment',
-      { type: 'warning' }
-    )
-
-    // TODO: 调用支付处理API
-    // 模拟支付处理
-    loading.value = true
-    await new Promise(resolve => setTimeout(resolve, 1500))
-
-    // 更新订单状态为待使用
-    if (currentReservation.value) {
-      currentReservation.value.status = ReservationStatus.AwaitingUse
-      // TODO: 更新列表中的订单状态
+    paymentState.loading = true
+    
+    switch (paymentState.selectedMethod) {
+      case 'qr':
+        // 获取支付二维码
+        const { qrCodeUrl } = await generateQrCode(currentReservation.value)
+        paymentState.qrCodeUrl = qrCodeUrl
+        // 开始轮询支付状态
+        startPollingPaymentStatus()
+        break
+        
+      case 'cash':
+        await processCashPayment({
+          reservationId: currentReservation.value?.id,
+          received: paymentState.cashReceived,
+          change: changeAmount.value
+        })
+        completePayment()
+        break
+        
+      case 'sms':
+        await sendPaymentLink({
+          reservationId: currentReservation.value?.id,
+          phone: paymentState.phoneNumber
+        })
+        ElMessage.success('Payment link has been sent')
+        paymentDialogVisible.value = false
+        break
+        
+      case 'none':
+        await markAsNoPayment(currentReservation.value?.id)
+        completePayment()
+        break
     }
-
-    ElMessage.success('Payment processed successfully')
-    paymentDialogVisible.value = false
-    selectedPaymentMethod.value = ''
-  } catch {
-    // 用户取消操作
+  } catch (error) {
+    ElMessage.error('Payment failed, please try again')
   } finally {
-    loading.value = false
+    paymentState.loading = false
   }
 }
 
-// 获取支付方式显示文本
-const getPaymentMethodLabel = (value: string): string => {
-  return paymentMethods.find(m => m.value === value)?.label || value
+// 处理确认支付
+const handleConfirmPayment = async (row: Reservation) => {
+  // 计算费用明细
+  const serviceFee = row.amount * 0.9 // 假设服务费占90%
+  const tax = row.amount * 0.1 // 假设税费占10%
+  
+  currentReservation.value = {
+    ...row,
+    serviceFee,
+    tax,
+    amount: row.amount,
+    duration: calculateDuration(row.startTime, row.endTime)
+  }
+  paymentDialogVisible.value = true
+}
+
+// 计算时长
+const calculateDuration = (start: string, end: string): number => {
+  const startTime = new Date(start).getTime()
+  const endTime = new Date(end).getTime()
+  return Math.floor((endTime - startTime) / (1000 * 60)) // 返回分钟数
 }
 
 // 处理取消订单
@@ -839,6 +1226,12 @@ const getActions = (status: ReservationStatus): string[] => {
 }
 
 // Check In 处理
+const checkInDialogVisible = ref(false)
+const checkInState = reactive({
+  selectedPlateNo: '',
+  loading: false
+})
+
 const handleCheckIn = async (row: Reservation) => {
   // 检查是否可以进场
   const now = new Date()
@@ -854,211 +1247,83 @@ const handleCheckIn = async (row: Reservation) => {
     return
   }
 
+  // 设置当前预约
+  currentReservation.value = row
+  checkInDialogVisible.value = true
+}
+
+// 处理Check-in确认
+const handleCheckInConfirm = async () => {
+  if (!currentReservation.value) return
+  
   try {
-    await ElMessageBox.confirm(
-      'Please confirm the parking space is available. Continue with check-in?',
-      'Check-in Confirmation',
-      {
-        confirmButtonText: 'Confirm Check-in',
-        cancelButtonText: 'Cancel',
-        type: 'info'
-      }
-    )
+    loading.value = true
+    // TODO: 调用check-in API
+    await new Promise(resolve => setTimeout(resolve, 1000))
 
     // 更新订单状态
-    row.status = ReservationStatus.InUse
-    row.checkInTime = new Date().toISOString()
+    currentReservation.value.status = ReservationStatus.InUse
+    currentReservation.value.checkInTime = new Date().toISOString()
     ElMessage.success('Check-in successful')
+    checkInDialogVisible.value = false
 
   } catch {
     // 用户取消操作
-    return
+  } finally {
+    loading.value = false
   }
 }
 
 // Check Out 处理
+const checkOutDialogVisible = ref(false)
+const checkOutState = reactive({
+  selectedPlateNo: '',
+  selectedMethod: '',
+  loading: false
+})
+
+// 超时费率（每小时）
+const overdueRate = 10
+
+// 是否超时
+const isOverdue = computed(() => {
+  return currentReservation.value?.status === ReservationStatus.Overdue
+})
+
+// 计算超时费用
+const calculateOverdueFee = () => {
+  if (!currentReservation.value?.overdueMinutes) return 0
+  return Math.ceil(currentReservation.value.overdueMinutes / 60) * overdueRate
+}
+
 const handleCheckOut = async (row: Reservation) => {
-  const now = new Date()
-  const endTime = new Date(row.endTime)
-  const overdueMinutes = Math.max(0, (now.getTime() - endTime.getTime()) / (1000 * 60))
-
-  if (overdueMinutes > 0) {
-    // 计算超时费用
-    const overdueFee = calculatePenaltyAmount(overdueMinutes)
-    
-    try {
-      const action = await ElMessageBox.confirm(
-        `Overdue: ${formatDuration(overdueMinutes)}\nPenalty Fee: $${overdueFee.toFixed(2)}\n\nWould you like to collect the penalty fee?`,
-        'Overdue Check-out',
-        {
-          confirmButtonText: 'Collect Fee',
-          cancelButtonText: 'Waive Fee',
-          type: 'warning',
-          distinguishCancelAndClose: true
-        }
-      )
-
-      if (action === 'confirm') {
-        // 显示支付对话框
-        showPaymentDialog({
-          amount: overdueFee,
-          title: 'Overdue Penalty Payment',
-          onSuccess: () => {
-            completeCheckOut(row, {
-              overdueMinutes,
-              overdueFee,
-              feeCollected: true
-            })
-          }
-        })
-      } else {
-        // 放弃收费
-        completeCheckOut(row, {
-          overdueMinutes,
-          overdueFee,
-          feeCollected: false
-        })
-      }
-    } catch {
-      // 用户关闭对话框
-      return
-    }
-  } else {
-    // 正常离场
-    completeCheckOut(row)
-  }
+  currentReservation.value = row
+  checkOutState.selectedPlateNo = row.plateNos?.length > 1 ? '' : row.plateNo
+  checkOutState.selectedMethod = ''
+  checkOutDialogVisible.value = true
 }
 
-// 支付对话框组件
-const showPaymentDialog = ({ amount, title, onSuccess }: {
-  amount: number
-  title: string
-  onSuccess: () => void
-}) => {
-  const paymentMethods = [
-    {
-      label: 'Credit Card',
-      value: 'credit_card',
-      icon: 'CreditCard',
-      description: 'Pay with credit or debit card'
-    },
-    {
-      label: 'Cash',
-      value: 'cash',
-      icon: 'Money',
-      description: 'Pay with cash'
-    },
-    {
-      label: 'Mobile Payment',
-      value: 'mobile',
-      icon: 'Cellphone',
-      description: 'Pay with mobile wallet'
-    },
-    {
-      label: 'Bank Transfer',
-      value: 'bank',
-      icon: 'Bank',
-      description: 'Pay via bank transfer'
-    }
-  ]
-
-  ElMessageBox.confirm(
-    h('div', { class: 'payment-dialog' }, [
-      h('div', { class: 'payment-summary' }, [
-        h('div', { class: 'summary-item' }, [
-          h('span', { class: 'label' }, 'Amount Due:'),
-          h('span', { class: 'value amount' }, `$${amount.toFixed(2)}`)
-        ])
-      ]),
-      h('div', { class: 'payment-methods' }, 
-        paymentMethods.map(method => 
-          h('div', { 
-            class: 'payment-method-item',
-            onClick: () => {
-              // 模支付处理
-              ElMessage.success(`Payment successful via ${method.label}`)
-              onSuccess()
-              // 关闭对话框
-              ElMessageBox.close()
-            }
-          }, [
-            h('div', { class: 'method-icon' }, [
-              h('el-icon', {}, [h(method.icon)])
-            ]),
-            h('div', { class: 'method-info' }, [
-              h('div', { class: 'method-name' }, method.label),
-              h('div', { class: 'method-desc' }, method.description)
-            ])
-          ])
-        )
-      )
-    ]),
-    title,
-    {
-      showCancelButton: true,
-      showConfirmButton: false,
-      customClass: 'payment-dialog'
-    }
-  )
-}
-
-// 完成离场
-const completeCheckOut = (row: Reservation, overdueInfo?: {
-  overdueMinutes: number
-  overdueFee: number
-  feeCollected: boolean
-}) => {
-  row.status = ReservationStatus.Used
-  row.checkOutTime = new Date().toISOString()
-  
-  if (overdueInfo) {
-    row.overdueMinutes = overdueInfo.overdueMinutes
-    if (overdueInfo.feeCollected) {
-      row.overdueFee = overdueInfo.overdueFee
-      row.amount += overdueInfo.overdueFee
-    }
-  }
-
-  ElMessage.success('Check-out completed')
-}
-
-// 判断是否超时
-const isOverdue = (reservation: Reservation): boolean => {
-  const endTime = new Date(reservation.endTime)
-  return endTime < new Date()
-}
-
-// 罚款处理
-const handlePenalty = async (row: Reservation) => {
-  const overdueDuration = calculateOverdueDuration(row)
-  const penaltyAmount = calculatePenaltyAmount(overdueDuration)
+// 处理Check-out确认
+const handleCheckOutConfirm = async () => {
+  if (!currentReservation.value) return
   
   try {
-    await ElMessageBox.confirm(
-      `Overdue ${formatDuration(overdueDuration)}, penalty amount: $${penaltyAmount.toFixed(2)}`,
-      'Add Penalty',
-      { type: 'warning' }
-    )
-    // TODO: 调用罚款API
-    ElMessage.success('Penalty added successfully')
+    loading.value = true
+
+    // TODO: 调用check-out API
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    // 更新订单状态 
+    currentReservation.value.status = ReservationStatus.Used
+    currentReservation.value.checkOutTime = new Date().toISOString()
+    ElMessage.success('Check-out successful')
+    checkOutDialogVisible.value = false
+
   } catch {
-    // User cancelled
+    // 用户取消操作
+  } finally {
+    loading.value = false
   }
-}
-
-// 计算超时时长(分钟)
-const calculateOverdueDuration = (reservation: Reservation): number => {
-  const endTime = new Date(reservation.endTime)
-  const now = new Date()
-  return Math.floor((now.getTime() - endTime.getTime()) / (1000 * 60))
-}
-
-// 计算罚款金额
-const calculatePenaltyAmount = (overdueDuration: number): number => {
-  // 示: 每小时10美元
-  const hourlyRate = 10
-  const hours = Math.ceil(overdueDuration / 60)
-  return hours * hourlyRate
 }
 
 // 添加控制变量
@@ -1142,85 +1407,60 @@ const handleReservationCreated = () => {
 .payment-dialog {
   :deep(.el-dialog__body) {
     padding: 20px;
+    max-height: 70vh;
+    overflow-y: auto;
   }
 }
 
-.payment-methods {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+.section-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  margin: 0 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+.order-summary {
   margin-bottom: 24px;
+}
 
-  .payment-method-item {
+.order-info {
+  background-color: var(--el-fill-color-light);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+
+  .info-row {
     display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 20px;
-    border: 1px solid #dcdfe6;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s;
-    position: relative;
+    justify-content: space-between;
+    margin-bottom: 12px;
 
-    &:hover {
-      border-color: var(--el-color-primary-light-5);
-      background-color: var(--el-color-primary-light-9);
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  .info-item {
+    flex: 1;
+
+    .label {
+      color: var(--el-text-color-secondary);
+      font-size: 14px;
+      margin-right: 8px;
     }
 
-    &.active {
-      border-color: var(--el-color-primary);
-      background-color: var(--el-color-primary-light-9);
-    }
-
-    .method-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 8px;
-      background-color: var(--el-color-primary-light-8);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-
-      .el-icon {
-        font-size: 24px;
-        color: var(--el-color-primary);
-      }
-    }
-
-    .method-info {
-      flex: 1;
-      min-width: 0;
-
-      .method-name {
-        font-size: 16px;
-        font-weight: 500;
-        margin-bottom: 4px;
-        color: var(--el-text-color-primary);
-      }
-
-      .method-desc {
-        font-size: 13px;
-        color: var(--el-text-color-secondary);
-        line-height: 1.4;
-      }
-    }
-
-    .method-check {
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      color: var(--el-color-primary);
-      font-size: 18px;
+    .value {
+      color: var(--el-text-color-primary);
+      font-weight: 500;
     }
   }
 }
 
-.payment-summary {
+.payment-details {
   padding: 16px;
   background-color: var(--el-fill-color-light);
   border-radius: 8px;
-  margin-bottom: 20px;
 
   .summary-item {
     display: flex;
@@ -1228,23 +1468,97 @@ const handleReservationCreated = () => {
     align-items: center;
     padding: 8px 0;
     
-    &:not(:last-child) {
-      border-bottom: 1px solid var(--el-border-color-lighter);
+    &.total {
+      border-top: 1px solid var(--el-border-color-lighter);
+      margin-top: 8px;
+      padding-top: 16px;
     }
 
     .label {
       color: var(--el-text-color-secondary);
     }
-
+  
     .value {
       font-weight: 500;
       color: var(--el-text-color-primary);
-
+  
       &.amount {
         font-size: 18px;
         color: var(--el-color-success);
       }
     }
+  }
+}
+
+.payment-section {
+  .payment-methods {
+    margin-bottom: 20px;
+  }
+
+  .payment-content {
+    padding: 16px;
+    background-color: var(--el-fill-color-light);
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+}
+
+.payment-method-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  }
+
+  .method-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    background-color: var(--el-color-primary-light-8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    .el-icon {
+      font-size: 24px;
+      color: var(--el-color-primary);
+    }
+  }
+
+  .method-info {
+    flex: 1;
+    min-width: 0;
+
+    .method-name {
+      font-size: 16px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      color: var(--el-text-color-primary);
+    }
+
+    .method-desc {
+      font-size: 13px;
+      color: var(--el-text-color-secondary);
+      line-height: 1.4;
+    }
+  }
+
+  .method-check {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    color: var(--el-color-primary);
+    font-size: 18px;
   }
 }
 
@@ -1301,6 +1615,186 @@ const handleReservationCreated = () => {
   
   .el-tag {
     margin: 0;
+  }
+}
+
+.check-in-dialog {
+  :deep(.el-dialog__body) {
+    padding: 20px;
+  }
+
+  .order-info {
+    background-color: var(--el-fill-color-light);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+
+    .info-row {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 12px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      .label {
+        width: 80px;
+        color: var(--el-text-color-secondary);
+        font-size: 14px;
+        padding-top: 4px;
+      }
+
+      .value {
+        flex: 1;
+        color: var(--el-text-color-primary);
+        font-weight: 500;
+
+        &.time-info {
+          .el-icon {
+            margin-right: 4px;
+            color: #909399;
+          }
+        }
+        
+        .el-tag + .el-tag {
+          margin-left: 8px;
+        }
+      }
+    }
+  }
+
+  .vehicle-info {
+    text-align: center;
+    padding: 20px 0;
+    
+    .section-title {
+      font-size: 16px;
+      color: var(--el-text-color-secondary);
+      margin-bottom: 16px;
+    }
+    
+    .plate-tag {
+      font-size: 24px;
+      padding: 12px 24px;
+      height: auto;
+      border-radius: 8px;
+    }
+  }
+}
+
+.multiple-plates {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  
+  .plate-count {
+    font-size: 12px;
+    padding: 0 4px;
+    height: 18px;
+    line-height: 16px;
+  }
+}
+
+.check-out-dialog {
+  :deep(.el-dialog__body) {
+    padding: 20px;
+  }
+
+  .vehicle-info {
+    margin: 20px 0;
+    
+    .section-title {
+      font-size: 16px;
+      color: var(--el-text-color-secondary);
+      margin-bottom: 16px;
+    }
+    
+    .plate-selection {
+      .plate-list {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+      }
+
+      .plate-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid var(--el-border-color);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+
+        &:hover {
+          border-color: var(--el-color-primary);
+          background-color: var(--el-color-primary-light-9);
+        }
+
+        &.active {
+          border-color: var(--el-color-primary);
+          background-color: var(--el-color-primary-light-9);
+        }
+      }
+    }
+
+    .single-plate {
+      text-align: center;
+      
+      .el-tag {
+        font-size: 20px;
+        padding: 12px 24px;
+        height: auto;
+      }
+    }
+  }
+
+  .payment-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+
+    .payment-method-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px;
+      border: 1px solid var(--el-border-color);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+
+      &:hover {
+        border-color: var(--el-color-primary);
+        background-color: var(--el-color-primary-light-9);
+      }
+
+      &.active {
+        border-color: var(--el-color-primary);
+        background-color: var(--el-color-primary-light-9);
+      }
+
+      .method-icon {
+        font-size: 24px;
+        color: var(--el-color-primary);
+      }
+
+      .method-info {
+        flex: 1;
+
+        .method-name {
+          font-weight: 500;
+          margin-bottom: 4px;
+        }
+
+        .method-desc {
+          font-size: 12px;
+          color: var(--el-text-color-secondary);
+        }
+      }
+    }
   }
 }
 </style>

@@ -19,6 +19,7 @@
           </el-breadcrumb>
         </div>
         <div class="header-right">
+          <HeaderActions />
           <el-dropdown>
             <span class="user-info">
               <el-avatar :size="32" src="https://placeholder.com/32x32" />
@@ -45,6 +46,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import Menu from '@/components/Menu.vue'
+import HeaderActions from '@/components/HeaderActions.vue'
 
 const route = useRoute()
 const currentRoute = computed(() => route.meta.title || '')
@@ -89,6 +91,10 @@ const currentRoute = computed(() => route.meta.title || '')
       padding: 0 20px;
 
       .header-right {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        
         .user-info {
           display: flex;
           align-items: center;

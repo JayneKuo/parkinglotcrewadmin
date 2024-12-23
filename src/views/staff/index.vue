@@ -30,17 +30,6 @@
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="Shift">
-        <el-select v-model="searchForm.workShift" placeholder="Select shift" clearable>
-          <el-option label="All Shifts" value="" />
-          <el-option 
-            v-for="(label, value) in shiftOptions" 
-            :key="value" 
-            :label="label" 
-            :value="value"
-          />
-        </el-select>
-      </el-form-item>
       <el-form-item label="Parking Lot">
         <el-select v-model="searchForm.parkingLotId" placeholder="Select parking lot" clearable>
           <el-option label="All Parking Lots" value="" />
@@ -60,7 +49,7 @@
     </el-form>
 
     <!-- 数据表格 -->
-    <el-table :data="staffList" border style="width: 100%; margin-top: 20px;">
+    <el-table :data="sortedStaffList" border style="width: 100%; margin-top: 20px;">
       <el-table-column type="expand">
         <template #default="{ row }">
           <el-form label-position="left" inline class="staff-detail">
@@ -90,13 +79,6 @@
         </template>
       </el-table-column>
       <el-table-column prop="parkingLotName" label="Parking Lot" />
-      <el-table-column prop="workShift" label="Shift" width="100">
-        <template #default="{ row }">
-          <el-tag :type="getShiftTagType(row.workShift)">
-            {{ formatShift(row.workShift) }}
-          </el-tag>
-        </template>
-      </el-table-column>
       <el-table-column prop="joinDate" label="Join Date" width="120" />
       <el-table-column prop="status" label="Status" width="100">
         <template #default="{ row }">
@@ -117,7 +99,6 @@
               <el-dropdown-menu>
                 <el-dropdown-item @click="handleStatusChange(row, 'active')">Set Active</el-dropdown-item>
                 <el-dropdown-item @click="handleStatusChange(row, 'leave')">Set Leave</el-dropdown-item>
-                <el-dropdown-item @click="handleStatusChange(row, 'suspended')" divided>Suspend</el-dropdown-item>
                 <el-dropdown-item @click="handleStatusChange(row, 'inactive')" divided>
                   <span style="color: #F56C6C;">Set Inactive</span>
                 </el-dropdown-item>
@@ -154,13 +135,19 @@
         <el-form-item label="Phone" prop="phone">
           <el-input v-model="form.phone" />
         </el-form-item>
-        <el-form-item label="Password" prop="password" v-if="dialogType === 'add'">
+        <el-form-item label="Initial Password" prop="password" v-if="dialogType === 'add'">
           <el-input 
             v-model="form.password" 
             type="password" 
             show-password
             placeholder="Set initial password"
-          />
+          >
+            <template #append>
+              <el-button @click="generateInitialPassword">
+                Generate
+              </el-button>
+            </template>
+          </el-input>
         </el-form-item>
         <el-form-item label="Email" prop="email">
           <el-input v-model="form.email" />
@@ -208,11 +195,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import type { Staff, StaffRole, StaffStatus } from '@/types/staff'
+import { getStaffList, addStaff, updateStaff, resetPassword, sendPasswordEmail } from '@/api/staff'
 
 // 搜索表单
 const searchForm = reactive({
@@ -230,7 +218,7 @@ const parkingLots = ref([
   { id: '2', name: 'East Lake Parking' }
 ])
 
-// 员工列表模拟数据
+// 员工列表数据
 const staffList = ref<Staff[]>([
   {
     id: '1',
@@ -242,12 +230,12 @@ const staffList = ref<Staff[]>([
     parkingLotName: 'West Lake Parking',
     joinDate: '2024-01-01',
     status: 'active',
-    workShift: 'morning',
     lastLoginTime: '2024-02-15 10:00:00',
+    createTime: '2024-01-01',
     emergencyContact: {
       name: 'Jane Smith',
       phone: '13900139000',
-      relationship: 'Spouse'
+      relationship: 'spouse'
     }
   },
   {
@@ -259,10 +247,75 @@ const staffList = ref<Staff[]>([
     parkingLotId: '1',
     parkingLotName: 'West Lake Parking',
     joinDate: '2024-01-15',
-    status: 'active',
-    workShift: 'afternoon'
+    status: 'leave',
+    createTime: '2024-01-15',
+    lastLoginTime: '2024-02-14 15:30:00',
+    emergencyContact: {
+      name: 'William Davis',
+      phone: '13900139001',
+      relationship: 'parent'
+    }
+  },
+  {
+    id: '3',
+    name: 'Michael Chen',
+    phone: '13800138002',
+    email: 'michael.chen@example.com',
+    role: 'valet',
+    parkingLotId: '2',
+    parkingLotName: 'East Lake Parking',
+    joinDate: '2024-02-01',
+    status: 'inactive',
+    createTime: '2024-02-01',
+    lastLoginTime: '2024-02-13 22:15:00',
+    emergencyContact: {
+      name: 'Linda Chen',
+      phone: '13900139002',
+      relationship: 'sibling'
+    }
+  },
+  {
+    id: '4',
+    name: 'Sarah Wilson',
+    phone: '13800138003',
+    email: 'sarah.wilson@example.com',
+    role: 'security',
+    parkingLotId: '2',
+    parkingLotName: 'East Lake Parking',
+    joinDate: '2023-12-01',
+    status: 'inactive',
+    createTime: '2023-12-01',
+    lastLoginTime: '2024-02-10 08:45:00',
+    emergencyContact: {
+      name: 'Robert Wilson',
+      phone: '13900139003',
+      relationship: 'spouse'
+    },
+    statusHistory: [
+      {
+        status: 'inactive',
+        time: '2024-02-10T08:45:00',
+        operator: 'Admin',
+        reason: 'Resigned for personal reasons'
+      }
+    ]
   }
 ])
+
+// 加载员工列表
+const loadStaffList = () => {
+  // 模拟搜索过滤
+  const filteredList = staffList.value.filter(staff => {
+    return (!searchForm.name || staff.name.toLowerCase().includes(searchForm.name.toLowerCase())) &&
+      (!searchForm.phone || staff.phone.includes(searchForm.phone)) &&
+      (!searchForm.role || staff.role === searchForm.role) &&
+      (!searchForm.status || staff.status === searchForm.status) &&
+      (!searchForm.workShift || staff.workShift === searchForm.workShift) &&
+      (!searchForm.parkingLotId || staff.parkingLotId === searchForm.parkingLotId)
+  })
+  
+  staffList.value = filteredList
+}
 
 // 分页配置
 const pagination = reactive({
@@ -278,46 +331,63 @@ const formRef = ref<FormInstance>()
 
 // 表单数据
 const form = reactive({
+  id: '',
   name: '',
   phone: '',
   email: '',
   role: '',
   parkingLotId: '',
-  status: '',
+  status: 'active',
   joinDate: '',
-  emergencyContact: {
-    name: '',
-    phone: '',
-    relationship: ''
-  },
   password: ''
 })
 
 // 表单验证规则
 const rules: FormRules = {
-  name: [{ required: true, message: 'Please enter name', trigger: 'blur' }],
+  name: [
+    { required: true, message: '请输入姓名', trigger: 'blur' }
+  ],
   phone: [
-    { required: true, message: 'Please enter phone', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: 'Invalid phone number', trigger: 'blur' }
+    { required: true, message: '请输入电话', trigger: 'blur' },
+    { pattern: /^[0-9]{10}$/, message: '请输入有效的电话号码', trigger: 'blur' }
   ],
   email: [
-    { required: true, message: 'Please enter email', trigger: 'blur' },
-    { type: 'email', message: 'Invalid email format', trigger: 'blur' }
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' }
   ],
-  role: [{ required: true, message: 'Please select role', trigger: 'change' }],
-  parkingLotId: [{ required: true, message: 'Please select parking lot', trigger: 'change' }],
-  status: [{ required: true, message: 'Please select status', trigger: 'change' }],
-  joinDate: [{ required: true, message: 'Please select join date', trigger: 'change' }],
-  'emergencyContact.name': [{ required: true, message: 'Please enter contact name', trigger: 'blur' }],
-  'emergencyContact.phone': [
-    { required: true, message: 'Please enter contact phone', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: 'Invalid phone number', trigger: 'blur' }
+  role: [
+    { required: true, message: '请选择角色', trigger: 'change' }
   ],
-  'emergencyContact.relationship': [{ required: true, message: 'Please enter relationship', trigger: 'blur' }],
+  parkingLotId: [
+    { required: true, message: '请选择停车场', trigger: 'change' }
+  ],
+  status: [
+    { required: true, message: '请选择状态', trigger: 'change' }
+  ],
+  joinDate: [
+    { required: true, message: '请选择入职日期', trigger: 'change' }
+  ],
   password: [
-    { required: true, message: 'Please enter password', trigger: 'blur' },
-    { min: 6, message: 'Password must be at least 6 characters', trigger: 'blur' }
-  ]
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码长度至少6个字符', trigger: 'blur' },
+    { 
+      pattern: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/,
+      message: '密码必须包含字母和数字',
+      trigger: 'blur'
+    }
+  ],
+  emergencyContact: {
+    name: [
+      { required: true, message: '请输入紧急联系人姓名', trigger: 'blur' }
+    ],
+    phone: [
+      { required: true, message: '请输入紧急联系人电话', trigger: 'blur' },
+      { pattern: /^[0-9]{10}$/, message: '请输入有效的电话号码', trigger: 'blur' }
+    ],
+    relationship: [
+      { required: true, message: '请选择与紧急联系人关系', trigger: 'change' }
+    ]
+  }
 }
 
 // 格式化方法
@@ -386,36 +456,30 @@ const getShiftTagType = (shift: string | undefined) => {
 
 // 操作处理
 const handleSearch = () => {
-  console.log('Search form:', searchForm)
-  // TODO: 调用搜索API
+  loadStaffList()
 }
 
 const handleReset = () => {
-  Object.assign(searchForm, {
-    name: '',
-    phone: '',
-    role: '',
-    status: '',
-    workShift: '',
-    parkingLotId: ''
-  })
+  searchForm.name = ''
+  searchForm.phone = ''
+  searchForm.role = ''
+  searchForm.status = ''
+  searchForm.workShift = ''
+  searchForm.parkingLotId = ''
+  loadStaffList()
 }
 
 const handleAdd = () => {
   formType.value = 'add'
   Object.assign(form, {
+    id: '',
     name: '',
     phone: '',
     email: '',
     role: '',
     parkingLotId: '',
-    status: '',
+    status: 'active',
     joinDate: '',
-    emergencyContact: {
-      name: '',
-      phone: '',
-      relationship: ''
-    },
     password: ''
   })
   dialogVisible.value = true
@@ -424,6 +488,7 @@ const handleAdd = () => {
 const handleEdit = (row: Staff) => {
   formType.value = 'edit'
   Object.assign(form, {
+    id: row.id,
     name: row.name,
     phone: row.phone,
     email: row.email,
@@ -443,12 +508,28 @@ const handleEdit = (row: Staff) => {
 
 const handleSubmit = async () => {
   if (!formRef.value) return
-  await formRef.value.validate((valid) => {
-    if (valid) {
-      ElMessage.success(formType.value === 'add' ? 'Staff added successfully' : 'Staff updated successfully')
-      dialogVisible.value = false
+  
+  try {
+    await formRef.value.validate()
+    
+    if (dialogType.value === 'add') {
+      await addStaff(form)
+      await sendPasswordEmail({
+        to: form.email,
+        password: form.password,
+        type: 'initial'
+      })
+      ElMessage.success('Staff added successfully')
+    } else {
+      await updateStaff(form.id, form)
+      ElMessage.success('Staff updated successfully')
     }
-  })
+    
+    dialogVisible.value = false
+    loadStaffList() // 重新加载列表
+  } catch (error) {
+    ElMessage.error('Operation failed')
+  }
 }
 
 const handleStatusChange = async (row: Staff, newStatus: StaffStatus) => {
@@ -520,10 +601,59 @@ const handleResetPassword = async (row: Staff) => {
         type: 'warning'
       }
     )
-    ElMessage.success('Password reset successfully')
-  } catch {
-    // 用户取消操作
+    
+    // 生成新密码
+    const newPassword = generateRandomPassword()
+    
+    // 调用API重置密码
+    await resetPassword({
+      staffId: row.id,
+      newPassword: newPassword
+    })
+    
+    // 发送邮件通知
+    await sendPasswordEmail({
+      to: row.email,
+      password: newPassword,
+      type: 'reset'
+    })
+    
+    ElMessage.success('Password has been reset and sent to employee\'s email')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('Failed to reset password. Please try again')
+    }
   }
+}
+
+// 生成初始密码
+const generateInitialPassword = () => {
+  form.password = generateRandomPassword()
+}
+
+// 生成随机密码
+const generateRandomPassword = () => {
+  // 确保包含至少一个大写字母、一个小写字母、一个数字和一个特殊字符
+  const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  const lower = 'abcdefghijklmnopqrstuvwxyz'
+  const numbers = '0123456789'
+  const special = '!@#$%^&*'
+  
+  let password = ''
+  // 确保每种字符都有
+  password += upper.charAt(Math.floor(Math.random() * upper.length))
+  password += lower.charAt(Math.floor(Math.random() * lower.length))
+  password += numbers.charAt(Math.floor(Math.random() * numbers.length))
+  password += special.charAt(Math.floor(Math.random() * special.length))
+  
+  // 补充剩余长度
+  const chars = upper + lower + numbers + special
+  for (let i = password.length; i < 12; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  
+  // 打乱密码字符顺序
+  return password.split('').sort(() => Math.random() - 0.5).join('')
 }
 
 // 分页处理
@@ -558,6 +688,29 @@ const shiftOptions = {
   afternoon: 'Afternoon Shift (14:00-22:00)',
   night: 'Night Shift (22:00-6:00)'
 }
+
+// 状态优先级排序
+const statusPriority = {
+  active: 1,
+  leave: 2,
+  suspended: 3,
+  inactive: 4
+}
+
+// 排序后的员工列表
+const sortedStaffList = computed(() => {
+  return [...staffList.value].sort((a, b) => {
+    // 首先按状态优先级排序
+    const statusDiff = statusPriority[a.status] - statusPriority[b.status]
+    if (statusDiff !== 0) return statusDiff
+    
+    // 其次按添加时间倒序
+    return new Date(b.createTime).getTime() - new Date(a.createTime).getTime()
+  })
+})
+
+// 初始加载
+loadStaffList()
 </script>
 
 <style scoped lang="scss">
@@ -587,6 +740,14 @@ const shiftOptions = {
 :deep(.el-dropdown-menu__item) {
   &.danger {
     color: #F56C6C;
+  }
+}
+
+.emergency-contact-card {
+  margin-bottom: 20px;
+  
+  :deep(.el-card__body) {
+    padding: 20px;
   }
 }
 </style>
